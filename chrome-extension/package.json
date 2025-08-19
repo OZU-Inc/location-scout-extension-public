@@ -1,0 +1,20 @@
+{
+  "name": "location-scout-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for automatic location scouting slide generation",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.260",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4",
+    "typescript": "^5.3.0",
+    "ts-loader": "^9.5.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,132 @@
+{
+  "name": "ロケハン用カスタムテンプレート",
+  "description": "アクセス情報と駐車場を重視したテンプレート",
+  "slideCount": 6,
+  "slides": [
+    {
+      "slideNumber": 1,
+      "type": "title",
+      "layout": "TITLE",
+      "content": {
+        "title": "{{locationName}}",
+        "subtitle": "ロケーションハンティング資料\n{{date}}"
+      }
+    },
+    {
+      "slideNumber": 2,
+      "type": "basic_info",
+      "layout": "TITLE_AND_BODY",
+      "content": {
+        "title": "基本情報",
+        "body": [
+          "📍 場所名: {{locationName}}",
+          "🏠 住所: {{address}}",
+          "🔗 参照URL: {{sourceUrl}}",
+          "",
+          "⏰ 営業時間: {{businessHours}}",
+          "📅 定休日: {{closedDays}}"
+        ]
+      }
+    },
+    {
+      "slideNumber": 3,
+      "type": "train_access",
+      "layout": "TITLE_AND_BODY",
+      "content": {
+        "title": "電車でのアクセス",
+        "body": "{{trainAccess}}",
+        "bulletPoints": true
+      }
+    },
+    {
+      "slideNumber": 4,
+      "type": "car_access",
+      "layout": "TITLE_AND_TWO_COLUMNS",
+      "content": {
+        "title": "車でのアクセス",
+        "leftColumn": {
+          "heading": "🚗 アクセスルート",
+          "content": "{{carAccess}}"
+        },
+        "rightColumn": {
+          "heading": "🅿️ 駐車場情報",
+          "content": "{{parkingInfo}}"
+        }
+      }
+    },
+    {
+      "slideNumber": 5,
+      "type": "features",
+      "layout": "TITLE_AND_BODY",
+      "content": {
+        "title": "特徴・撮影ポイント",
+        "body": {
+          "features": "{{features}}",
+          "photoSpots": "{{photoSpots}}"
+        }
+      }
+    },
+    {
+      "slideNumber": 6,
+      "type": "notes",
+      "layout": "TITLE_AND_BODY",
+      "content": {
+        "title": "注意事項・メモ",
+        "body": [
+          "{{notes}}",
+          "",
+          "データ取得日時: {{extractedAt}}",
+          "生成者: Location Scout Extension"
+        ]
+      }
+    }
+  ],
+  "styles": {
+    "theme": {
+      "fontFamily": "Noto Sans JP",
+      "colors": {
+        "primary": "#1a73e8",
+        "secondary": "#34a853",
+        "accent": "#fbbc04",
+        "text": "#202124",
+        "background": "#ffffff"
+      }
+    },
+    "textStyles": {
+      "title": {
+        "fontSize": 32,
+        "fontWeight": "bold",
+        "color": "primary"
+      },
+      "subtitle": {
+        "fontSize": 18,
+        "color": "text"
+      },
+      "body": {
+        "fontSize": 14,
+        "lineHeight": 1.6,
+        "color": "text"
+      },
+      "heading": {
+        "fontSize": 20,
+        "fontWeight": "bold",
+        "color": "secondary"
+      }
+    }
+  },
+  "placeholders": {
+    "locationName": "場所名",
+    "address": "住所",
+    "sourceUrl": "参照元URL",
+    "date": "作成日",
+    "businessHours": "営業時間",
+    "closedDays": "定休日",
+    "trainAccess": "電車アクセス情報",
+    "carAccess": "車アクセス情報",
+    "parkingInfo": "駐車場情報",
+    "features": "特徴リスト",
+    "photoSpots": "撮影ポイント",
+    "notes": "注意事項",
+    "extractedAt": "データ取得日時"
+  }
+}

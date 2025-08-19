@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Scout Slide Generator</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📍 Location Scout</h1>
+            <p class="subtitle">スライド自動生成</p>
+        </header>
+
+        <main>
+            <div id="status-area" class="status-area">
+                <div class="current-page">
+                    <label>現在のページ:</label>
+                    <div id="page-title" class="page-title">読み込み中...</div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="generate-btn" class="primary-btn">
+                    <span class="btn-icon">📊</span>
+                    スライドを生成
+                </button>
+                
+                <button id="settings-btn" class="secondary-btn">
+                    <span class="btn-icon">⚙️</span>
+                    設定
+                </button>
+            </div>
+
+            <div id="progress-area" class="progress-area hidden">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <p id="progress-text" class="progress-text">処理中...</p>
+            </div>
+
+            <div id="result-area" class="result-area hidden">
+                <div class="success-message">
+                    <span class="success-icon">✅</span>
+                    <p>スライドが生成されました！</p>
+                </div>
+                <a id="slide-link" href="#" target="_blank" class="slide-link">
+                    Google Slidesで開く →
+                </a>
+            </div>
+
+            <div id="error-area" class="error-area hidden">
+                <div class="error-message">
+                    <span class="error-icon">⚠️</span>
+                    <p id="error-text">エラーが発生しました</p>
+                </div>
+                <button id="retry-btn" class="secondary-btn">再試行</button>
+            </div>
+        </main>
+
+        <footer>
+            <a href="#" id="help-link">ヘルプ</a>
+            <span class="separator">|</span>
+            <a href="#" id="feedback-link">フィードバック</a>
+        </footer>
+    </div>
+
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>設定</h2>
+            
+            <div class="settings-section">
+                <label for="api-key">OpenAI API Key:</label>
+                <input type="password" id="api-key" placeholder="sk-...">
+                <small>APIキーは安全に保存されます</small>
+            </div>
+
+            <div class="settings-section">
+                <label for="template-select">スライドテンプレート:</label>
+                <select id="template-select">
+                    <option value="filming_location">撮影地フォーマット（指定形式）</option>
+                    <option value="default">デフォルト（5スライド）</option>
+                    <option value="simple">シンプル（3スライド）</option>
+                    <option value="detailed">詳細（7スライド）</option>
+                    <option value="custom">カスタム（URLから）</option>
+                </select>
+            </div>
+
+            <div class="settings-section" id="template-url-section" style="display: none;">
+                <label for="template-url">テンプレートスライドURL:</label>
+                <input type="text" id="template-url" placeholder="https://docs.google.com/presentation/d/...">
+                <small>マスタースライドのURLを入力</small>
+            </div>
+
+            <div class="settings-section">
+                <label for="spreadsheet-id">保存先スプレッドシートID:</label>
+                <input type="text" id="spreadsheet-id" placeholder="スプレッドシートIDまたは空欄で新規作成">
+                <small>空欄の場合は新しいスプレッドシートを作成します</small>
+            </div>
+
+            <div class="settings-section">
+                <label>
+                    <input type="checkbox" id="auto-images">
+                    画像を自動で含める
+                </label>
+            </div>
+
+            <div class="settings-section">
+                <label>
+                    <input type="checkbox" id="save-to-sheets">
+                    スプレッドシートに自動保存
+                </label>
+            </div>
+
+            <div class="modal-buttons">
+                <button id="save-settings" class="primary-btn">保存</button>
+                <button id="cancel-settings" class="secondary-btn">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

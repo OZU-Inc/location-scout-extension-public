@@ -1,0 +1,195 @@
+export async function saveToSpreadsheet(locationData, slideUrl, authToken, spreadsheetId) {
+    try {
+        const sheetData = formatDataForSheet(locationData, slideUrl);
+        
+        const range = 'ロケハンDB!A:H';
+        
+        const response = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    values: [sheetData]
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(`スプレッドシート保存失敗: ${JSON.stringify(error)}`);
+        }
+        
+        const result = await response.json();
+        console.log('スプレッドシートに保存完了:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('スプレッドシート保存エラー:', error);
+        throw error;
+    }
+}
+
+function formatDataForSheet(locationData, slideUrl) {
+    const now = new Date();
+    const timestamp = now.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    return [
+        timestamp,                                    // A列: 登録日時
+        locationData.sourceUrl || '記載無し',        // B列: URL
+        locationData.locationName || '記載無し',     // C列: 場所名
+        locationData.address || '記載無し',          // D列: 住所
+        locationData.trainAccess || '記載無し',      // E列: 電車アクセス
+        locationData.carAccess || '記載無し',        // F列: 車アクセス
+        locationData.parkingInfo || '記載無し',      // G列: 駐車場
+        slideUrl || '記載無し'                       // H列: スライドURL
+    ];
+}
+
+export async function createSpreadsheetIfNotExists(authToken, title = 'ロケハンデータベース') {
+    try {
+        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                properties: {
+                    title: title
+                },
+                sheets: [{
+                    properties: {
+                        title: 'ロケハンDB'
+                    },
+                    data: [{
+                        startRow: 0,
+                        startColumn: 0,
+                        rowData: [{
+                            values: [
+                                { userEnteredValue: { stringValue: '登録日時' } },
+                                { userEnteredValue: { stringValue: 'URL' } },
+                                { userEnteredValue: { stringValue: '場所名' } },
+                                { userEnteredValue: { stringValue: '住所' } },
+                                { userEnteredValue: { stringValue: '電車アクセス' } },
+                                { userEnteredValue: { stringValue: '車アクセス' } },
+                                { userEnteredValue: { stringValue: '駐車場' } },
+                                { userEnteredValue: { stringValue: 'スライドURL' } }
+                            ]
+                        }]
+                    }]
+                }]
+            })
+        });
+        
+        if (!createResponse.ok) {
+            throw new Error('スプレッドシート作成失敗');
+        }
+        
+        const spreadsheet = await createResponse.json();
+        console.log('新規スプレッドシート作成:', spreadsheet.spreadsheetId);
+        
+        await formatSpreadsheet(spreadsheet.spreadsheetId, authToken);
+        
+        return spreadsheet.spreadsheetId;
+        
+    } catch (error) {
+        console.error('スプレッドシート作成エラー:', error);
+        throw error;
+    }
+}
+
+async function formatSpreadsheet(spreadsheetId, authToken) {
+    const requests = [
+        {
+            repeatCell: {
+                range: {
+                    sheetId: 0,
+                    startRowIndex: 0,
+                    endRowIndex: 1
+                },
+                cell: {
+                    userEnteredFormat: {
+                        backgroundColor: {
+                            red: 0.2,
+                            green: 0.4,
+                            blue: 0.8
+                        },
+                        textFormat: {
+                            foregroundColor: {
+                                red: 1,
+                                green: 1,
+                                blue: 1
+                            },
+                            fontSize: 11,
+                            bold: true
+                        }
+                    }
+                },
+                fields: 'userEnteredFormat(backgroundColor,textFormat)'
+            }
+        },
+        {
+            updateDimensionProperties: {
+                range: {
+                    sheetId: 0,
+                    dimension: 'COLUMNS',
+                    startIndex: 0,
+                    endIndex: 8
+                },
+                properties: {
+                    pixelSize: 150
+                },
+                fields: 'pixelSize'
+            }
+        },
+        {
+            setDataValidation: {
+                range: {
+                    sheetId: 0,
+                    startRowIndex: 1,
+                    startColumnIndex: 6,
+                    endColumnIndex: 7
+                },
+                rule: {
+                    condition: {
+                        type: 'ONE_OF_LIST',
+                        values: [
+                            { userEnteredValue: '有り - 無料' },
+                            { userEnteredValue: '有り - 有料' },
+                            { userEnteredValue: '無し' },
+                            { userEnteredValue: '不明' }
+                        ]
+                    },
+                    showCustomUi: true
+                }
+            }
+        }
+    ];
+    
+    await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ requests })
+        }
+    );
+}
+
+export async function getSpreadsheetUrl(spreadsheetId) {
+    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+}
