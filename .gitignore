@@ -65,3 +65,9 @@ secrets.json
 # Temporary files
 tmp/
 temp/
+
+# X_files
+X_HOW_TO_SHARE_TEMPLATE.md
+X_location_automation_proposal.md
+X_TEMPLATE_SETUP_GUIDE.md
+X_UPDATED_IMPLEMENTATION.md
