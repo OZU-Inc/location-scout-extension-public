@@ -22,9 +22,7 @@
           "📍 場所名: {{locationName}}",
           "🏠 住所: {{address}}",
           "🔗 参照URL: {{sourceUrl}}",
-          "",
-          "⏰ 営業時間: {{businessHours}}",
-          "📅 定休日: {{closedDays}}"
+          ""
         ]
       }
     },
@@ -51,18 +49,6 @@
         "rightColumn": {
           "heading": "🅿️ 駐車場情報",
           "content": "{{parkingInfo}}"
-        }
-      }
-    },
-    {
-      "slideNumber": 5,
-      "type": "features",
-      "layout": "TITLE_AND_BODY",
-      "content": {
-        "title": "特徴・撮影ポイント",
-        "body": {
-          "features": "{{features}}",
-          "photoSpots": "{{photoSpots}}"
         }
       }
     },
@@ -119,14 +105,9 @@
     "address": "住所",
     "sourceUrl": "参照元URL",
     "date": "作成日",
-    "businessHours": "営業時間",
-    "closedDays": "定休日",
     "trainAccess": "電車アクセス情報",
     "carAccess": "車アクセス情報",
     "parkingInfo": "駐車場情報",
-    "features": "特徴リスト",
-    "photoSpots": "撮影ポイント",
-    "notes": "注意事項",
     "extractedAt": "データ取得日時"
   }
 }

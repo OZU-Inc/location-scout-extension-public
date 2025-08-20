@@ -19,7 +19,8 @@
   "permissions": [
     "activeTab",
     "storage",
-    "identity"
+    "identity",
+    "scripting"
   ],
   "host_permissions": [
     "https://*/*",

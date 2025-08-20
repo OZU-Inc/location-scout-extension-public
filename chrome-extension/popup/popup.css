@@ -230,21 +230,31 @@ footer a:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 9999;
 }
 
 .modal-content {
     background: white;
     width: 90%;
     max-width: 350px;
+    max-height: 90vh;
     border-radius: 12px;
     padding: 25px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
 }
 
 .modal-content h2 {
     margin-bottom: 20px;
     color: #212529;
+    position: sticky;
+    top: -25px;
+    background: white;
+    padding: 10px 0;
+    z-index: 10;
+    border-bottom: 2px solid #e9ecef;
 }
 
 .settings-section {
@@ -284,6 +294,18 @@ footer a:hover {
     display: flex;
     gap: 10px;
     margin-top: 25px;
+    position: sticky;
+    bottom: -25px;
+    background: white;
+    padding: 15px 0 0 0;
+    border-top: 1px solid #e9ecef;
+    z-index: 1000;
+}
+
+.modal-buttons button {
+    pointer-events: auto;
+    position: relative;
+    z-index: 1001;
 }
 
 .hidden {
@@ -304,4 +326,47 @@ footer a:hover {
 
 .loading {
     animation: pulse 1.5s infinite;
+}
+
+/* スクロールバーのスタイル */
+.modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* モバイルフレンドリーな調整 */
+@media (max-height: 600px) {
+    .modal-content {
+        max-height: 85vh;
+        padding: 20px;
+    }
+}
+
+/* 設定項目のグループ化 */
+.settings-group {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f8f9fa;
+}
+
+.settings-group-title {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+    font-size: 14px;
 }

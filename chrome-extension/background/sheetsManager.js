@@ -2,7 +2,7 @@ export async function saveToSpreadsheet(locationData, slideUrl, authToken, sprea
     try {
         const sheetData = formatDataForSheet(locationData, slideUrl);
         
-        const range = 'ロケハンDB!A:H';
+        const range = 'ロケハンDB!A:I';
         
         const response = await fetch(
             `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
@@ -33,7 +33,7 @@ export async function saveToSpreadsheet(locationData, slideUrl, authToken, sprea
     }
 }
 
-function formatDataForSheet(locationData, slideUrl) {
+function formatDataForSheet(locationData, slideUrl, userName = '') {
     const now = new Date();
     const timestamp = now.toLocaleString('ja-JP', {
         year: 'numeric',
@@ -52,8 +52,154 @@ function formatDataForSheet(locationData, slideUrl) {
         locationData.trainAccess || '記載無し',      // E列: 電車アクセス
         locationData.carAccess || '記載無し',        // F列: 車アクセス
         locationData.parkingInfo || '記載無し',      // G列: 駐車場
-        slideUrl || '記載無し'                       // H列: スライドURL
+        locationData.phoneNumber || '記載無し',      // H列: 電話番号 ★追加
+        slideUrl || '記載無し'                       // I列: スライドURL
     ];
+}
+
+export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken, masterSpreadsheetId, userName) {
+    try {
+        // 重複チェック
+        const isDuplicate = await checkDuplicateEntry(masterSpreadsheetId, locationData.sourceUrl, authToken);
+        if (isDuplicate) {
+            console.log('Duplicate entry detected, skipping master DB save');
+            return { success: true, duplicate: true };
+        }
+        
+        const masterData = formatMasterDataForSheet(locationData, slideUrl, userName);
+        
+        const range = 'ロケハンDB!A:J';
+        
+        const response = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${masterSpreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+            {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    values: [masterData]
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(`マスタースプレッドシート保存失敗: ${JSON.stringify(error)}`);
+        }
+        
+        const result = await response.json();
+        console.log('マスタースプレッドシートに保存完了:', result);
+        return { success: true, duplicate: false };
+        
+    } catch (error) {
+        console.error('マスタースプレッドシート保存エラー:', error);
+        throw error;
+    }
+}
+
+function formatMasterDataForSheet(locationData, slideUrl, userName) {
+    const now = new Date();
+    const timestamp = now.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    return [
+        userName || '不明',                          // A列: 登録者
+        timestamp,                                    // B列: 登録日時
+        locationData.sourceUrl || '記載無し',        // C列: URL
+        locationData.locationName || '記載無し',     // D列: 場所名
+        locationData.address || '記載無し',          // E列: 住所
+        locationData.trainAccess || '記載無し',      // F列: 電車アクセス
+        locationData.carAccess || '記載無し',        // G列: 車アクセス
+        locationData.parkingInfo || '記載無し',      // H列: 駐車場
+        locationData.phoneNumber || '記載無し',      // I列: 電話番号 ★追加
+        slideUrl || '記載無し'                       // J列: スライドURL
+    ];
+}
+
+async function checkDuplicateEntry(spreadsheetId, url, authToken) {
+    try {
+        const response = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/ロケハンDB!C:C`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            }
+        );
+        
+        if (!response.ok) return false;
+        
+        const data = await response.json();
+        const values = data.values || [];
+        
+        return values.some(row => row[0] === url);
+    } catch (error) {
+        console.error('重複チェックエラー:', error);
+        return false;
+    }
+}
+
+export async function createMasterSpreadsheet(authToken, title = 'ロケハンマスターDB') {
+    try {
+        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                properties: {
+                    title: title
+                },
+                sheets: [{
+                    properties: {
+                        title: 'ロケハンDB'
+                    },
+                    data: [{
+                        startRow: 0,
+                        startColumn: 0,
+                        rowData: [{
+                            values: [
+                                { userEnteredValue: { stringValue: '登録者' } },
+                                { userEnteredValue: { stringValue: '登録日時' } },
+                                { userEnteredValue: { stringValue: 'URL' } },
+                                { userEnteredValue: { stringValue: '場所名' } },
+                                { userEnteredValue: { stringValue: '住所' } },
+                                { userEnteredValue: { stringValue: '電車アクセス' } },
+                                { userEnteredValue: { stringValue: '車アクセス' } },
+                                { userEnteredValue: { stringValue: '駐車場' } },
+                                { userEnteredValue: { stringValue: '電話番号' } },
+                                { userEnteredValue: { stringValue: 'スライドURL' } }
+                            ]
+                        }]
+                    }]
+                }]
+            })
+        });
+        
+        if (!createResponse.ok) {
+            throw new Error('マスタースプレッドシート作成失敗');
+        }
+        
+        const spreadsheet = await createResponse.json();
+        console.log('新規マスタースプレッドシート作成:', spreadsheet.spreadsheetId);
+        
+        await formatSpreadsheet(spreadsheet.spreadsheetId, authToken, true);
+        
+        return spreadsheet.spreadsheetId;
+        
+    } catch (error) {
+        console.error('マスタースプレッドシート作成エラー:', error);
+        throw error;
+    }
 }
 
 export async function createSpreadsheetIfNotExists(authToken, title = 'ロケハンデータベース') {
@@ -84,6 +230,7 @@ export async function createSpreadsheetIfNotExists(authToken, title = 'ロケハ
                                 { userEnteredValue: { stringValue: '電車アクセス' } },
                                 { userEnteredValue: { stringValue: '車アクセス' } },
                                 { userEnteredValue: { stringValue: '駐車場' } },
+                                { userEnteredValue: { stringValue: '電話番号' } },
                                 { userEnteredValue: { stringValue: 'スライドURL' } }
                             ]
                         }]
@@ -109,7 +256,8 @@ export async function createSpreadsheetIfNotExists(authToken, title = 'ロケハ
     }
 }
 
-async function formatSpreadsheet(spreadsheetId, authToken) {
+async function formatSpreadsheet(spreadsheetId, authToken, isMaster = false) {
+    const columnCount = isMaster ? 9 : 8;
     const requests = [
         {
             repeatCell: {
@@ -145,7 +293,7 @@ async function formatSpreadsheet(spreadsheetId, authToken) {
                     sheetId: 0,
                     dimension: 'COLUMNS',
                     startIndex: 0,
-                    endIndex: 8
+                    endIndex: columnCount
                 },
                 properties: {
                     pixelSize: 150
@@ -168,7 +316,7 @@ async function formatSpreadsheet(spreadsheetId, authToken) {
                             { userEnteredValue: '有り - 無料' },
                             { userEnteredValue: '有り - 有料' },
                             { userEnteredValue: '無し' },
-                            { userEnteredValue: '不明' }
+                            { userEnteredValue: '記載無し' }
                         ]
                     },
                     showCustomUi: true
