@@ -68,52 +68,66 @@
 
     <div id="settings-modal" class="modal hidden">
         <div class="modal-content">
-            <h2>設定</h2>
+            <h2>⚙️ 設定</h2>
             
-            <div class="settings-section">
-                <label for="api-key">OpenAI API Key:</label>
-                <input type="password" id="api-key" placeholder="sk-...">
-                <small>APIキーは安全に保存されます</small>
+            <div class="settings-group">
+                <div class="settings-group-title">🔑 必須設定</div>
+                <div class="settings-section">
+                    <label for="api-key">OpenAI API Key:</label>
+                    <input type="password" id="api-key" placeholder="sk-...">
+                    <small>APIキーは暗号化して安全に保存されます</small>
+                </div>
+                
+                <div class="settings-section">
+                    <label for="user-name">登録者名:</label>
+                    <input type="text" id="user-name" placeholder="山田太郎">
+                    <small>チームで誰が登録したかを識別します</small>
+                </div>
             </div>
 
-            <div class="settings-section">
-                <label for="template-select">スライドテンプレート:</label>
-                <select id="template-select">
-                    <option value="filming_location">撮影地フォーマット（指定形式）</option>
-                    <option value="default">デフォルト（5スライド）</option>
-                    <option value="simple">シンプル（3スライド）</option>
-                    <option value="detailed">詳細（7スライド）</option>
-                    <option value="custom">カスタム（URLから）</option>
-                </select>
+
+            <div class="settings-group">
+                <div class="settings-group-title">👥 チーム共有設定</div>
+                <div class="settings-section">
+                    <label>
+                        <input type="checkbox" id="team-sharing">
+                        チーム共有モードを有効にする
+                    </label>
+                </div>
+
+                <div class="settings-section" id="team-settings" style="display: none;">
+                    <label for="shared-folder-id">共有フォルダID:</label>
+                    <input type="text" id="shared-folder-id" placeholder="1aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV">
+                    <small>📁 管理者が作成した共有フォルダのID<br>
+                    例: drive.google.com/drive/folders/[ここがID]</small>
+                </div>
+
+                <div class="settings-section" id="master-db-settings" style="display: none;">
+                    <label for="master-spreadsheet-id">マスターDB ID:</label>
+                    <input type="text" id="master-spreadsheet-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
+                    <small>📊 チーム統一スプレッドシートのID<br>
+                    例: docs.google.com/spreadsheets/d/[ここがID]/edit</small>
+                </div>
             </div>
 
-            <div class="settings-section" id="template-url-section" style="display: none;">
-                <label for="template-url">テンプレートスライドURL:</label>
-                <input type="text" id="template-url" placeholder="https://docs.google.com/presentation/d/...">
-                <small>マスタースライドのURLを入力</small>
-            </div>
+            <div class="settings-group">
+                <div class="settings-group-title">💾 個人データ設定</div>
+                <div class="settings-section">
+                    <label for="spreadsheet-id">個人用スプレッドシートID:</label>
+                    <input type="text" id="spreadsheet-id" placeholder="空欄で新規作成 または 既存のID">
+                    <small>個人用バックアップ（オプション）</small>
+                </div>
 
-            <div class="settings-section">
-                <label for="spreadsheet-id">保存先スプレッドシートID:</label>
-                <input type="text" id="spreadsheet-id" placeholder="スプレッドシートIDまたは空欄で新規作成">
-                <small>空欄の場合は新しいスプレッドシートを作成します</small>
-            </div>
-
-            <div class="settings-section">
-                <label>
-                    <input type="checkbox" id="auto-images">
-                    画像を自動で含める
-                </label>
-            </div>
-
-            <div class="settings-section">
-                <label>
-                    <input type="checkbox" id="save-to-sheets">
-                    スプレッドシートに自動保存
-                </label>
+                <div class="settings-section">
+                    <label>
+                        <input type="checkbox" id="save-to-sheets">
+                        スプレッドシートに自動保存
+                    </label>
+                </div>
             </div>
 
             <div class="modal-buttons">
+                <button id="test-button" class="secondary-btn" style="background: orange;">🧪 テスト</button>
                 <button id="save-settings" class="primary-btn">保存</button>
                 <button id="cancel-settings" class="secondary-btn">キャンセル</button>
             </div>
