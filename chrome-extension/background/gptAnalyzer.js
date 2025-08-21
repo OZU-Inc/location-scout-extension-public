@@ -15,7 +15,15 @@ export async function analyzeWithGPT(pageContent, apiKey) {
     "trainAccess": "電車でのアクセス情報（最寄り駅、路線名、駅からの所要時間など）",
     "carAccess": "車でのアクセス情報（最寄りIC、一般道からのルート、所要時間など）",
     "parkingInfo": "駐車場の有無と詳細（台数、料金など）",
-    "phoneNumber": "電話番号（ハイフン区切りの形式）"
+    "phoneNumber": "電話番号（ハイフン区切りの形式）",
+    "sourceInfo": {
+        "pageTitle": "取得元ページのタイトル",
+        "pageUrl": "取得元ページのURL",
+        "pageDescription": "取得元ページの概要（30-50文字程度）",
+        "extractedFrom": "情報を抽出した具体的なセクション名やページ内の場所",
+        "dataQuality": "抽出した情報の信頼度（高・中・低）",
+        "extractedFields": ["抽出できた情報項目のリスト"]
+    }
 }
 
 駐車場情報は必ず以下の形式で記載：
@@ -24,7 +32,13 @@ export async function analyzeWithGPT(pageContent, apiKey) {
 - 「無し」
 - 「記載無し」
 
-**重要**: 情報が見つからない項目やWebページに記載されていない項目は、null や空文字ではなく「記載無し」という文字列を設定してください。空配列の場合は [] のままで構いません。`;
+**重要**: 
+1. 情報が見つからない項目やWebページに記載されていない項目は、null や空文字ではなく「記載無し」という文字列を設定してください。
+2. sourceInfoは必ず含めてください。情報の出典と信頼性を詳細に記載してください。
+3. extractedFromには「アクセス情報セクション」「施設概要ページ」「お問い合わせページ」など、具体的な場所を記載してください。
+4. dataQualityは抽出した情報の完全性と信頼性を評価してください（高：公式サイトから完全な情報を取得、中：一部情報不足または非公式サイト、低：断片的な情報のみ）。
+5. extractedFieldsには実際に抽出できた情報項目名（"locationName", "address", "trainAccess"など）をリストで記載してください。
+6. pageUrlには取得元ページのURLを正確に記載してください。`;
 
     // pageContentの検証
     if (!pageContent || typeof pageContent !== 'object') {

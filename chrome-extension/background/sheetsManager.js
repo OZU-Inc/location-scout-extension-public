@@ -1,8 +1,9 @@
 export async function saveToSpreadsheet(locationData, slideUrl, authToken, spreadsheetId) {
     try {
-        const sheetData = formatDataForSheet(locationData, slideUrl);
+        // 2行分のデータを作成（情報行とソース行）
+        const dataRows = formatDataForSheetWithSource(locationData, slideUrl);
         
-        const range = 'ロケハンDB!A:I';
+        const range = 'ロケハンDB!A:K';
         
         const response = await fetch(
             `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
@@ -13,7 +14,7 @@ export async function saveToSpreadsheet(locationData, slideUrl, authToken, sprea
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    values: [sheetData]
+                    values: dataRows  // 2行分のデータ
                 })
             }
         );
@@ -33,7 +34,8 @@ export async function saveToSpreadsheet(locationData, slideUrl, authToken, sprea
     }
 }
 
-function formatDataForSheet(locationData, slideUrl, userName = '') {
+// 2行構成でデータを作成（情報行 + ソース行）
+function formatDataForSheetWithSource(locationData, slideUrl, userName = '') {
     const now = new Date();
     const timestamp = now.toLocaleString('ja-JP', {
         year: 'numeric',
@@ -44,17 +46,43 @@ function formatDataForSheet(locationData, slideUrl, userName = '') {
         second: '2-digit'
     });
     
-    return [
+    // 1行目: 抽出した情報
+    const dataRow = [
         timestamp,                                    // A列: 登録日時
-        locationData.sourceUrl || '記載無し',        // B列: URL
-        locationData.locationName || '記載無し',     // C列: 場所名
-        locationData.address || '記載無し',          // D列: 住所
-        locationData.trainAccess || '記載無し',      // E列: 電車アクセス
-        locationData.carAccess || '記載無し',        // F列: 車アクセス
-        locationData.parkingInfo || '記載無し',      // G列: 駐車場
-        locationData.phoneNumber || '記載無し',      // H列: 電話番号 ★追加
-        slideUrl || '記載無し'                       // I列: スライドURL
+        locationData.locationName || '記載無し',     // B列: 場所名
+        locationData.address || '記載無し',          // C列: 住所
+        locationData.trainAccess || '記載無し',      // D列: 電車アクセス
+        locationData.carAccess || '記載無し',        // E列: 車アクセス
+        locationData.parkingInfo || '記載無し',      // F列: 駐車場
+        locationData.phoneNumber || '記載無し',      // G列: 電話番号
+        slideUrl || '記載無し',                      // H列: スライドURL
+        '',                                           // I列: 空（ソース情報用）
+        '',                                           // J列: 空（ソース詳細用）
+        ''                                            // K列: 空（抽出元用）
     ];
+    
+    // 2行目: ソース情報（薄い背景色で表示）
+    const sourceRow = [
+        '└ソース',                                   // A列: インデント付きラベル
+        locationData.sourceInfo?.pageTitle || locationData.sourceUrl || '不明',  // B列: ページタイトル
+        `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // C列: クリック可能なリンク
+        locationData.sourceInfo?.pageDescription || '',        // D列: ページ概要
+        locationData.sourceInfo?.extractedFrom || '全体',      // E列: 抽出元セクション
+        '',                                                     // F列: 空
+        '',                                                     // G列: 空
+        '',                                                     // H列: 空
+        '',                                                     // I列: 空
+        '',                                                     // J列: 空
+        ''                                                      // K列: 空
+    ];
+    
+    return [dataRow, sourceRow];
+}
+
+// 旧形式（互換性のため残す）
+function formatDataForSheet(locationData, slideUrl, userName = '') {
+    const dataRows = formatDataForSheetWithSource(locationData, slideUrl, userName);
+    return dataRows[0]; // 1行目のみ返す
 }
 
 export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken, masterSpreadsheetId, userName) {
@@ -66,9 +94,10 @@ export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken,
             return { success: true, duplicate: true };
         }
         
-        const masterData = formatMasterDataForSheet(locationData, slideUrl, userName);
+        // 2行分のデータを作成
+        const masterDataRows = formatMasterDataForSheetWithSource(locationData, slideUrl, userName);
         
-        const range = 'ロケハンDB!A:J';
+        const range = 'ロケハンDB!A:L';
         
         const response = await fetch(
             `https://sheets.googleapis.com/v4/spreadsheets/${masterSpreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
@@ -79,7 +108,7 @@ export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    values: [masterData]
+                    values: masterDataRows  // 2行分のデータ
                 })
             }
         );
@@ -99,7 +128,8 @@ export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken,
     }
 }
 
-function formatMasterDataForSheet(locationData, slideUrl, userName) {
+// マスター用2行構成データ作成
+function formatMasterDataForSheetWithSource(locationData, slideUrl, userName) {
     const now = new Date();
     const timestamp = now.toLocaleString('ja-JP', {
         year: 'numeric',
@@ -110,18 +140,45 @@ function formatMasterDataForSheet(locationData, slideUrl, userName) {
         second: '2-digit'
     });
     
-    return [
+    // 1行目: 抽出した情報
+    const dataRow = [
         userName || '不明',                          // A列: 登録者
         timestamp,                                    // B列: 登録日時
-        locationData.sourceUrl || '記載無し',        // C列: URL
-        locationData.locationName || '記載無し',     // D列: 場所名
-        locationData.address || '記載無し',          // E列: 住所
-        locationData.trainAccess || '記載無し',      // F列: 電車アクセス
-        locationData.carAccess || '記載無し',        // G列: 車アクセス
-        locationData.parkingInfo || '記載無し',      // H列: 駐車場
-        locationData.phoneNumber || '記載無し',      // I列: 電話番号 ★追加
-        slideUrl || '記載無し'                       // J列: スライドURL
+        locationData.locationName || '記載無し',     // C列: 場所名
+        locationData.address || '記載無し',          // D列: 住所
+        locationData.trainAccess || '記載無し',      // E列: 電車アクセス
+        locationData.carAccess || '記載無し',        // F列: 車アクセス
+        locationData.parkingInfo || '記載無し',      // G列: 駐車場
+        locationData.phoneNumber || '記載無し',      // H列: 電話番号
+        slideUrl || '記載無し',                      // I列: スライドURL
+        '',                                           // J列: 空
+        '',                                           // K列: 空
+        ''                                            // L列: 空
     ];
+    
+    // 2行目: ソース情報
+    const sourceRow = [
+        '└ソース',                                   // A列: インデント付きラベル
+        '',                                           // B列: 空
+        locationData.sourceInfo?.pageTitle || 'ソース',  // C列: ページタイトル
+        `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // D列: クリック可能なリンク
+        locationData.sourceInfo?.pageDescription || '',        // E列: ページ概要
+        locationData.sourceInfo?.extractedFrom || '全体',      // F列: 抽出元セクション
+        '',                                                     // G列: 空
+        '',                                                     // H列: 空
+        '',                                                     // I列: 空
+        '',                                                     // J列: 空
+        '',                                                     // K列: 空
+        ''                                                      // L列: 空
+    ];
+    
+    return [dataRow, sourceRow];
+}
+
+// 旧形式（互換性のため残す）
+function formatMasterDataForSheet(locationData, slideUrl, userName) {
+    const dataRows = formatMasterDataForSheetWithSource(locationData, slideUrl, userName);
+    return dataRows[0]; // 1行目のみ返す
 }
 
 async function checkDuplicateEntry(spreadsheetId, url, authToken) {
