@@ -68,9 +68,9 @@ function formatDataForSheetWithSource(locationData, slideUrl, userName = '') {
         `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // C列: クリック可能なリンク
         locationData.sourceInfo?.pageDescription || '',        // D列: ページ概要
         locationData.sourceInfo?.extractedFrom || '全体',      // E列: 抽出元セクション
-        '',                                                     // F列: 空
-        '',                                                     // G列: 空
-        '',                                                     // H列: 空
+        locationData.sourceInfo?.dataQuality || '不明',        // F列: データ品質
+        (locationData.sourceInfo?.extractedFields || []).join(', ') || '',  // G列: 抽出フィールド
+        locationData.sourceInfo?.pageUrl || locationData.sourceUrl || '',    // H列: ページURL
         '',                                                     // I列: 空
         '',                                                     // J列: 空
         ''                                                      // K列: 空
@@ -164,9 +164,9 @@ function formatMasterDataForSheetWithSource(locationData, slideUrl, userName) {
         `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // D列: クリック可能なリンク
         locationData.sourceInfo?.pageDescription || '',        // E列: ページ概要
         locationData.sourceInfo?.extractedFrom || '全体',      // F列: 抽出元セクション
-        '',                                                     // G列: 空
-        '',                                                     // H列: 空
-        '',                                                     // I列: 空
+        locationData.sourceInfo?.dataQuality || '不明',        // G列: データ品質
+        (locationData.sourceInfo?.extractedFields || []).join(', ') || '',  // H列: 抽出フィールド
+        locationData.sourceInfo?.pageUrl || locationData.sourceUrl || '',    // I列: ページURL
         '',                                                     // J列: 空
         '',                                                     // K列: 空
         ''                                                      // L列: 空

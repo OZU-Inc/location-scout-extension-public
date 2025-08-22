@@ -9,7 +9,7 @@
 // 静的インポート（Service Workerでは動的importは使用不可）
 // インポートは最初に記述する必要がある
 import { analyzeWithGPT } from './gptAnalyzer.js';
-import { createCustomFormatSlide } from './slideGenerator_custom.js';
+import { createCustomFormatSlide, createSlideFromTemplate } from './slideGenerator_custom.js';
 import { saveToSpreadsheet, saveToMasterSpreadsheet, createSpreadsheetIfNotExists } from './sheetsManager.js';
 import { getAuthToken } from './auth.js';
 import { SecureStorage } from './encryption.js';
@@ -183,9 +183,16 @@ async function handleSlideGeneration(request, sendResponse) {
             
         } else {
             try {
-                // 固定でカスタムフォーマット（ロケ地テンプレート）のみ使用
-                slideUrl = await createCustomFormatSlide(locationData, authToken);
-                console.log('✅ スライド生成完了:', slideUrl);
+                // スライド作成方法を設定に基づいて決定
+                if (request.settings.slideTemplateId) {
+                    // 既存のテンプレートファイルを複製して使用
+                    slideUrl = await createSlideFromTemplate(locationData, authToken, request.settings.slideTemplateId);
+                    console.log('✅ テンプレートからスライド生成完了:', slideUrl);
+                } else {
+                    // デフォルトのカスタムフォーマット（ロケ地テンプレート）を使用
+                    slideUrl = await createCustomFormatSlide(locationData, authToken);
+                    console.log('✅ カスタムスライド生成完了:', slideUrl);
+                }
             } catch (slideError) {
                 console.error('❌ スライド生成エラー:', slideError);
                 slideUrl = '#スライド生成エラー';
