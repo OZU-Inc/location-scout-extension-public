@@ -24,13 +24,28 @@ function extractPageContent() {
     });
 
     // テキスト要素から場所情報を含む可能性のある要素を選択的に抽出
-    const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, address, time');
+    // より多くのHTML要素タイプを含めて、複雑なHTML構造にも対応
+    const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, address, time, div, span, section, article, dd, dt, label, figcaption');
     const textContent = [];
+    const processedTexts = new Set(); // 重複除去用
+    
     textElements.forEach(element => {
         const text = element.textContent.trim();
-        // 10文字以上のテキストのみを対象（ノイズ除去）
-        if (text && text.length > 10) {
-            textContent.push(text);
+        // 5文字以上のテキストのみを対象（住所や駅名も取得できるよう閾値を下げる）
+        if (text && text.length > 5 && !processedTexts.has(text)) {
+            // 住所パターンや交通情報パターンを優先的に抽出
+            if (text.match(/[都道府県市区町村]/g) || 
+                text.match(/\d+[-−]\d+/g) || // 番地
+                text.match(/[駅線]/g) || // 駅・路線
+                text.match(/徒歩|車で|分/g) || // アクセス情報
+                text.match(/〒\d{3}-?\d{4}/g) || // 郵便番号
+                text.match(/TEL|電話|☎/g)) { // 電話番号
+                textContent.push(text);
+                processedTexts.add(text);
+            } else if (text.length > 10) { // その他の一般的なテキストは10文字以上
+                textContent.push(text);
+                processedTexts.add(text);
+            }
         }
     });
     content.text = textContent.join('\n');  // 改行区切りで結合
@@ -52,15 +67,81 @@ function extractPageContent() {
     content.images = imageUrls;
 
     // 住所情報の特別抽出（構造化データやclass名から）
-    const addressElements = document.querySelectorAll('[itemprop="address"], .address, .location, address');
-    if (addressElements.length > 0) {
-        content.address = addressElements[0].textContent.trim();
+    const addressSelectors = [
+        '[itemprop="address"]',
+        '.address',
+        '.location',
+        'address',
+        '[class*="address"]',
+        '[class*="location"]',
+        '[class*="place"]',
+        '[id*="address"]',
+        '[id*="location"]'
+    ];
+    
+    // 住所パターンを含むすべての要素を検索
+    const allElements = document.querySelectorAll('*');
+    let addressFound = false;
+    
+    for (const element of allElements) {
+        const text = element.textContent.trim();
+        // 郵便番号パターンまたは住所っぽいパターンを検出
+        if (text.match(/〒\d{3}-?\d{4}/) || 
+            (text.match(/[都道府県]/) && text.match(/[市区町村]/) && text.match(/\d/))) {
+            content.address = text;
+            addressFound = true;
+            break;
+        }
+    }
+    
+    // パターンマッチで見つからない場合は、セレクタで探す
+    if (!addressFound) {
+        for (const selector of addressSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                content.address = elements[0].textContent.trim();
+                break;
+            }
+        }
     }
 
-    // 電話番号の特別抽出
-    const phoneElements = document.querySelectorAll('[href^="tel:"], [itemprop="telephone"]');
-    if (phoneElements.length > 0) {
-        content.phone = phoneElements[0].textContent.trim();
+    // 電話番号の特別抽出（より多くのパターンに対応）
+    const phoneSelectors = [
+        '[href^="tel:"]',
+        '[itemprop="telephone"]',
+        '[class*="phone"]',
+        '[class*="tel"]',
+        '[id*="phone"]',
+        '[id*="tel"]'
+    ];
+    
+    let phoneFound = false;
+    
+    // 電話番号パターンを含むすべての要素を検索
+    for (const element of allElements) {
+        const text = element.textContent.trim();
+        // 電話番号パターンを検出
+        if (text.match(/\d{2,4}-\d{2,4}-\d{3,4}/) || 
+            text.match(/\d{10,11}/) ||
+            text.match(/TEL|電話|☎/)) {
+            // 電話番号っぽい数字を抽出
+            const phoneMatch = text.match(/[\d-]+/);
+            if (phoneMatch && phoneMatch[0].length >= 10) {
+                content.phone = phoneMatch[0];
+                phoneFound = true;
+                break;
+            }
+        }
+    }
+    
+    if (!phoneFound) {
+        for (const selector of phoneSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                content.phone = elements[0].textContent.trim();
+                break;
+            }
+        }
     }
 
 
