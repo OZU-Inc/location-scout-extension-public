@@ -54,11 +54,8 @@ URL: ${pageContent.url || '不明'}
 メタ情報:
 ${JSON.stringify(pageContent.meta || {}, null, 2)}
 
-本文テキスト（最初の3000文字）:
-${(pageContent.text || '').substring(0, 3000)}
-
-画像情報:
-${(pageContent.images || []).map(img => `- ${img.alt || 'No alt text'}`).join('\n')}
+本文テキスト（最初の8000文字）:
+${(pageContent.text || '').substring(0, 8000)}
 
 ${pageContent.address ? `検出された住所: ${pageContent.address}` : ''}`;
 
@@ -101,10 +98,6 @@ ${pageContent.address ? `検出された住所: ${pageContent.address}` : ''}`;
         
         locationData.sourceUrl = pageContent.url || '不明';
         locationData.extractedAt = new Date().toISOString();
-        
-        if (pageContent.images && pageContent.images.length > 0) {
-            locationData.images = pageContent.images.slice(0, 4).map(img => img.src);
-        }
 
         return locationData;
 

@@ -151,7 +151,9 @@ async function handleSlideGeneration(request, sendResponse) {
             throw new Error('GPT分析に失敗しました。APIキーを確認してください。');
         }
         
-        // Step 3: Google認証
+        console.log('🎯 GPT解析が正常に完了しました。次にGoogle認証を開始します...');
+        
+        // Step 3: Google認証（GPT解析完了後に実行）
         console.log('🔐 Step 3: Google認証を取得中...');
         await sendProgressUpdate('authenticating');
         
