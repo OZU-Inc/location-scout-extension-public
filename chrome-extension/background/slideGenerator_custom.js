@@ -16,6 +16,55 @@ export async function createCustomFormatSlide(locationData, authToken) {
     }
 }
 
+// テンプレートファイルから新しいスライドを作成
+export async function createSlideFromTemplate(locationData, authToken, templateId) {
+    try {
+        console.log('📋 テンプレートファイルから複製中...', templateId);
+        
+        // Google Drive APIを使用してテンプレートファイルを複製
+        const copyResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${templateId}/copy`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: `撮影地情報 - ${locationData.locationName} - ${new Date().toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })}`
+            })
+        });
+        
+        if (!copyResponse.ok) {
+            throw new Error(`テンプレート複製失敗: ${copyResponse.statusText}`);
+        }
+        
+        const copiedFile = await copyResponse.json();
+        const presentationId = copiedFile.id;
+        
+        console.log('📝 複製完了、プレースホルダーを置換中...');
+        
+        // プレースホルダーを実際のデータで置換
+        const replaceRequests = generateTemplateReplaceRequests(locationData);
+        
+        if (replaceRequests.length > 0) {
+            await batchUpdate(presentationId, replaceRequests, authToken);
+        }
+        
+        const slideUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
+        console.log('✅ テンプレートベーススライド生成完了');
+        return slideUrl;
+        
+    } catch (error) {
+        console.error('❌ テンプレートスライド生成エラー:', error);
+        throw new Error(`テンプレートからのスライド生成に失敗しました: ${error.message}`);
+    }
+}
+
 async function createPresentation(title, authToken) {
     const response = await fetch('https://slides.googleapis.com/v1/presentations', {
         method: 'POST',
@@ -449,4 +498,47 @@ async function batchUpdate(presentationId, requests, authToken) {
 
 function generateId() {
     return 'custom_' + Math.random().toString(36).substr(2, 9);
+}
+
+// テンプレート内のプレースホルダーを置換するリクエストを生成
+function generateTemplateReplaceRequests(locationData) {
+    const requests = [];
+    
+    // 定義されたプレースホルダーと置換対象のマッピング
+    const placeholders = {
+        '{{場所名}}': locationData.locationName || '記載無し',
+        '{{住所}}': locationData.address || '記載無し',
+        '{{電車アクセス}}': locationData.trainAccess || '記載無し',
+        '{{車アクセス}}': locationData.carAccess || '記載無し',
+        '{{駐車場}}': locationData.parkingInfo || '記載無し',
+        '{{電話番号}}': locationData.phoneNumber || '記載無し',
+        '{{ページタイトル}}': locationData.sourceInfo?.pageTitle || '不明',
+        '{{ページ概要}}': locationData.sourceInfo?.pageDescription || '',
+        '{{抽出元}}': locationData.sourceInfo?.extractedFrom || '全体',
+        '{{データ品質}}': locationData.sourceInfo?.dataQuality || '不明',
+        '{{抽出フィールド}}': (locationData.sourceInfo?.extractedFields || []).join(', ') || '',
+        '{{ソースURL}}': locationData.sourceUrl || '',
+        '{{抽出日時}}': new Date().toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        })
+    };
+    
+    // 各プレースホルダーに対して置換リクエストを作成
+    Object.entries(placeholders).forEach(([placeholder, replacement]) => {
+        requests.push({
+            replaceAllText: {
+                containsText: {
+                    text: placeholder,
+                    matchCase: true
+                },
+                replaceText: replacement
+            }
+        });
+    });
+    
+    return requests;
 }

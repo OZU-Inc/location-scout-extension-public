@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         retryBtn: document.getElementById('retry-btn'),
         settingsModal: document.getElementById('settings-modal'),
         apiKeyInput: document.getElementById('api-key'),
+        slideTemplateIdInput: document.getElementById('slide-template-id'),
         spreadsheetIdInput: document.getElementById('spreadsheet-id'),
         saveToSheetsCheckbox: document.getElementById('save-to-sheets'),
         userNameInput: document.getElementById('user-name'),
@@ -32,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let settings = {
         apiKey: '',
         template: 'filming_location',
+        slideTemplateId: '',
         spreadsheetId: '',
         saveToSheets: true,
         userName: '',
@@ -106,6 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
+            if (stored.slideTemplateId) settings.slideTemplateId = stored.slideTemplateId;
             if (stored.spreadsheetId) settings.spreadsheetId = stored.spreadsheetId;
             if (stored.saveToSheets !== undefined) settings.saveToSheets = stored.saveToSheets;
             if (stored.userName) settings.userName = stored.userName;
@@ -114,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (stored.masterSpreadsheetId) settings.masterSpreadsheetId = stored.masterSpreadsheetId;
 
             elements.apiKeyInput.value = settings.apiKey ? '••••••••' : '';
+            elements.slideTemplateIdInput.value = settings.slideTemplateId || '';
             elements.spreadsheetIdInput.value = settings.spreadsheetId || '';
             elements.saveToSheetsCheckbox.checked = settings.saveToSheets;
             elements.userNameInput.value = settings.userName || '';
@@ -282,6 +286,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         
+            settings.slideTemplateId = elements.slideTemplateIdInput.value;
             settings.spreadsheetId = elements.spreadsheetIdInput.value;
             settings.saveToSheets = elements.saveToSheetsCheckbox.checked;
             settings.userName = elements.userNameInput.value;
@@ -291,6 +296,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             console.log('Saving other settings...');
             await chrome.storage.local.set({
+                slideTemplateId: settings.slideTemplateId,
                 spreadsheetId: settings.spreadsheetId,
                 saveToSheets: settings.saveToSheets,
                 userName: settings.userName,
