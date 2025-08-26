@@ -129,20 +129,6 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // URLテキストのフォントサイズを10ptに設定
-    requests.push({
-        updateTextStyle: {
-            objectId: urlLinkId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
-            fields: 'fontSize'
-        }
-    });
-    
     // URLをクリック可能なリンクに設定
     if (data.sourceUrl) {
         requests.push({
@@ -164,15 +150,14 @@ function generateCustomSlideRequests(data) {
                             }
                         }
                     },
-                    underline: true,
-                    fontSize: { magnitude: 10, unit: 'PT' }
+                    underline: true
                 },
-                fields: 'link,foregroundColor,underline,fontSize'
+                fields: 'link,foregroundColor,underline'
             }
         });
     }
     
-    // 「8. 撮影地」を完全に削除
+
     
     // 場所名フィールド
     const locationNameId = generateId();
@@ -190,7 +175,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 80,  // 70pt上に移動
+                    translateY: 50,
                     unit: 'PT'
                 }
             }
@@ -205,16 +190,11 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // 場所名のフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
             objectId: locationNameId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
@@ -235,7 +215,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 115,  // 70pt上に移動
+                    translateY: 80,
                     unit: 'PT'
                 }
             }
@@ -250,106 +230,53 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // 住所のフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
             objectId: addressId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
     
     // アクセス（電車の場合）セクション
-    const trainAccessHeaderId = generateId();
+    // アクセス（電車の場合）セクション＋詳細を1つのテキストボックスに
+    const trainAccessId = generateId();
     requests.push({
         createShape: {
-            objectId: trainAccessHeaderId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 170,  // 70pt上に移動
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-    
-    requests.push({
-        insertText: {
-            objectId: trainAccessHeaderId,
-            text: 'アクセス\n【電車の場合】',
-            insertionIndex: 0
-        }
-    });
-    
-    // アクセスヘッダーのフォントサイズを10ptに設定
-    requests.push({
-        updateTextStyle: {
-            objectId: trainAccessHeaderId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
-            fields: 'fontSize'
-        }
-    });
-    
-    // 電車アクセス詳細
-    const trainAccessDetailId = generateId();
-    requests.push({
-        createShape: {
-            objectId: trainAccessDetailId,
+            objectId: trainAccessId,
             shapeType: 'TEXT_BOX',
             elementProperties: {
                 pageObjectId: slideId,
                 size: {
                     width: { magnitude: 600, unit: 'PT' },
-                    height: { magnitude: 60, unit: 'PT' }
+                    height: { magnitude: 100, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: 80,
-                    translateY: 215,  // 70pt上に移動
+                    translateX: 50,
+                    translateY: 110,
                     unit: 'PT'
                 }
             }
         }
     });
-    
+
+
     requests.push({
         insertText: {
-            objectId: trainAccessDetailId,
-            text: data.trainAccess || '記載無し',
+            objectId: trainAccessId,
+            text: `アクセス\n【電車の場合】\n${data.trainAccess || '記載無し'}`,
             insertionIndex: 0
         }
     });
     
-    // 電車アクセス詳細のフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
-            objectId: trainAccessDetailId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            objectId: trainAccessId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
@@ -363,59 +290,14 @@ function generateCustomSlideRequests(data) {
             elementProperties: {
                 pageObjectId: slideId,
                 size: {
-                    width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 80,
-                    translateY: 290,  // 70pt上に移動
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-    
-    requests.push({
-        insertText: {
-            objectId: carAccessHeaderId,
-            text: '【車の場合】',
-            insertionIndex: 0
-        }
-    });
-    
-    // 車アクセスヘッダーのフォントサイズを10ptに設定
-    requests.push({
-        updateTextStyle: {
-            objectId: carAccessHeaderId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
-            fields: 'fontSize'
-        }
-    });
-    
-    // 車アクセス詳細
-    const carAccessDetailId = generateId();
-    requests.push({
-        createShape: {
-            objectId: carAccessDetailId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
                     width: { magnitude: 600, unit: 'PT' },
-                    height: { magnitude: 60, unit: 'PT' }
+                    height: { magnitude: 100, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: 80,
-                    translateY: 320,  // 70pt上に移動
+                    translateX: 50,
+                    translateY: 250,
                     unit: 'PT'
                 }
             }
@@ -424,25 +306,22 @@ function generateCustomSlideRequests(data) {
     
     requests.push({
         insertText: {
-            objectId: carAccessDetailId,
-            text: data.carAccess || '記載無し',
+            objectId: carAccessHeaderId,
+            text: `【車の場合】\n${data.carAccess || '記載無し'}`,
             insertionIndex: 0
         }
     });
     
-    // 車アクセス詳細のフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
-            objectId: carAccessDetailId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            objectId: carAccessHeaderId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
+    
+    
     
     // 駐車場セクション
     const parkingHeaderId = generateId();
@@ -454,13 +333,13 @@ function generateCustomSlideRequests(data) {
                 pageObjectId: slideId,
                 size: {
                     width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
+                    height: { magnitude: 50, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 400,  // 70pt上に移動
+                    translateY: 350,
                     unit: 'PT'
                 }
             }
@@ -475,16 +354,11 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // 駐車場ヘッダーのフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
             objectId: parkingHeaderId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
@@ -505,7 +379,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 150,
-                    translateY: 400,  // 70pt上に移動
+                    translateY: 470,
                     unit: 'PT'
                 }
             }
@@ -520,16 +394,11 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // 駐車場詳細のフォントサイズを10ptに設定
     requests.push({
         updateTextStyle: {
             objectId: parkingDetailId,
-            textRange: {
-                type: 'ALL'
-            },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' }
-            },
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
             fields: 'fontSize'
         }
     });
