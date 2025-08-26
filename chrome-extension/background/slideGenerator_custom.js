@@ -157,72 +157,7 @@ function generateCustomSlideRequests(data) {
         });
     }
     
-    // セクション番号とタイトル
-    const sectionHeaderId = generateId();
-    requests.push({
-        createShape: {
-            objectId: sectionHeaderId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 300, unit: 'PT' },
-                    height: { magnitude: 40, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 80,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-    
-    requests.push({
-        insertText: {
-            objectId: sectionHeaderId,
-            text: '8. 撮影地',
-            insertionIndex: 0
-        }
-    });
-    
-    // セクションヘッダーのスタイル
-    requests.push({
-        updateTextStyle: {
-            objectId: sectionHeaderId,
-            textRange: { type: 'ALL' },
-            style: {
-                fontSize: { magnitude: 16, unit: 'PT' },
-                bold: true
-            },
-            fields: 'fontSize,bold'
-        }
-    });
-    
-    // 下線
-    const underlineId = generateId();
-    requests.push({
-        createLine: {
-            objectId: underlineId,
-            lineCategory: 'STRAIGHT',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 620, unit: 'PT' },
-                    height: { magnitude: 0, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 125,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
+
     
     // 場所名フィールド
     const locationNameId = generateId();
@@ -240,7 +175,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 150,
+                    translateY: 50,
                     unit: 'PT'
                 }
             }
@@ -252,6 +187,15 @@ function generateCustomSlideRequests(data) {
             objectId: locationNameId,
             text: `場所名：${data.locationName || '記載無し'}`,
             insertionIndex: 0
+        }
+    });
+    
+    requests.push({
+        updateTextStyle: {
+            objectId: locationNameId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
         }
     });
     
@@ -271,7 +215,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 185,
+                    translateY: 80,
                     unit: 'PT'
                 }
             }
@@ -286,65 +230,54 @@ function generateCustomSlideRequests(data) {
         }
     });
     
+    requests.push({
+        updateTextStyle: {
+            objectId: addressId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
+        }
+    });
+    
     // アクセス（電車の場合）セクション
-    const trainAccessHeaderId = generateId();
+    // アクセス（電車の場合）セクション＋詳細を1つのテキストボックスに
+    const trainAccessId = generateId();
     requests.push({
         createShape: {
-            objectId: trainAccessHeaderId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 240,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-    
-    requests.push({
-        insertText: {
-            objectId: trainAccessHeaderId,
-            text: 'アクセス\n【電車の場合】',
-            insertionIndex: 0
-        }
-    });
-    
-    // 電車アクセス詳細
-    const trainAccessDetailId = generateId();
-    requests.push({
-        createShape: {
-            objectId: trainAccessDetailId,
+            objectId: trainAccessId,
             shapeType: 'TEXT_BOX',
             elementProperties: {
                 pageObjectId: slideId,
                 size: {
                     width: { magnitude: 600, unit: 'PT' },
-                    height: { magnitude: 60, unit: 'PT' }
+                    height: { magnitude: 100, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: 80,
-                    translateY: 285,
+                    translateX: 50,
+                    translateY: 110,
                     unit: 'PT'
                 }
             }
         }
     });
-    
+
+
     requests.push({
         insertText: {
-            objectId: trainAccessDetailId,
-            text: data.trainAccess || '記載無し',
+            objectId: trainAccessId,
+            text: `アクセス\n【電車の場合】\n${data.trainAccess || '記載無し'}`,
             insertionIndex: 0
+        }
+    });
+    
+    requests.push({
+        updateTextStyle: {
+            objectId: trainAccessId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
         }
     });
     
@@ -357,14 +290,14 @@ function generateCustomSlideRequests(data) {
             elementProperties: {
                 pageObjectId: slideId,
                 size: {
-                    width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
+                    width: { magnitude: 600, unit: 'PT' },
+                    height: { magnitude: 100, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: 80,
-                    translateY: 360,
+                    translateX: 50,
+                    translateY: 250,
                     unit: 'PT'
                 }
             }
@@ -374,41 +307,21 @@ function generateCustomSlideRequests(data) {
     requests.push({
         insertText: {
             objectId: carAccessHeaderId,
-            text: '【車の場合】',
+            text: `【車の場合】\n${data.carAccess || '記載無し'}`,
             insertionIndex: 0
         }
     });
     
-    // 車アクセス詳細
-    const carAccessDetailId = generateId();
     requests.push({
-        createShape: {
-            objectId: carAccessDetailId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 600, unit: 'PT' },
-                    height: { magnitude: 60, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 80,
-                    translateY: 390,
-                    unit: 'PT'
-                }
-            }
+        updateTextStyle: {
+            objectId: carAccessHeaderId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
         }
     });
     
-    requests.push({
-        insertText: {
-            objectId: carAccessDetailId,
-            text: data.carAccess || '記載無し',
-            insertionIndex: 0
-        }
-    });
+    
     
     // 駐車場セクション
     const parkingHeaderId = generateId();
@@ -420,13 +333,13 @@ function generateCustomSlideRequests(data) {
                 pageObjectId: slideId,
                 size: {
                     width: { magnitude: 200, unit: 'PT' },
-                    height: { magnitude: 30, unit: 'PT' }
+                    height: { magnitude: 50, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 470,
+                    translateY: 350,
                     unit: 'PT'
                 }
             }
@@ -438,6 +351,15 @@ function generateCustomSlideRequests(data) {
             objectId: parkingHeaderId,
             text: '駐車場：',
             insertionIndex: 0
+        }
+    });
+    
+    requests.push({
+        updateTextStyle: {
+            objectId: parkingHeaderId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
         }
     });
     
@@ -469,6 +391,15 @@ function generateCustomSlideRequests(data) {
             objectId: parkingDetailId,
             text: data.parkingInfo || '記載無し',
             insertionIndex: 0
+        }
+    });
+    
+    requests.push({
+        updateTextStyle: {
+            objectId: parkingDetailId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
         }
     });
     
