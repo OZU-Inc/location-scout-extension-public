@@ -98,7 +98,74 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // URLリンク（上部）
+    // セクション番号とタイトル（最上部）
+    const sectionHeaderId = generateId();
+    requests.push({
+        createShape: {
+            objectId: sectionHeaderId,
+            shapeType: 'TEXT_BOX',
+            elementProperties: {
+                pageObjectId: slideId,
+                size: {
+                    width: { magnitude: 300, unit: 'PT' },
+                    height: { magnitude: 40, unit: 'PT' }
+                },
+                transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 20,
+                    unit: 'PT'
+                }
+            }
+        }
+    });
+    
+    requests.push({
+        insertText: {
+            objectId: sectionHeaderId,
+            text: '8. 撮影地',
+            insertionIndex: 0
+        }
+    });
+    
+    // セクションヘッダーのスタイル
+    requests.push({
+        updateTextStyle: {
+            objectId: sectionHeaderId,
+            textRange: { type: 'ALL' },
+            style: {
+                fontSize: { magnitude: 10, unit: 'PT' },
+                bold: true
+            },
+            fields: 'fontSize,bold'
+        }
+    });
+    
+    // 下線（最上部）
+    const underlineId = generateId();
+    requests.push({
+        createLine: {
+            objectId: underlineId,
+            lineCategory: 'STRAIGHT',
+            elementProperties: {
+                pageObjectId: slideId,
+                size: {
+                    width: { magnitude: 620, unit: 'PT' },
+                    height: { magnitude: 0, unit: 'PT' }
+                },
+                transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 65,
+                    unit: 'PT'
+                }
+            }
+        }
+    });
+    
+    // URLリンク（8.撮影地の右側、スライド真ん中より右）
     const urlLinkId = generateId();
     requests.push({
         createShape: {
@@ -107,13 +174,13 @@ function generateCustomSlideRequests(data) {
             elementProperties: {
                 pageObjectId: slideId,
                 size: {
-                    width: { magnitude: 600, unit: 'PT' },
+                    width: { magnitude: 350, unit: 'PT' },
                     height: { magnitude: 30, unit: 'PT' }
                 },
                 transform: {
                     scaleX: 1,
                     scaleY: 1,
-                    translateX: 50,
+                    translateX: 370,
                     translateY: 20,
                     unit: 'PT'
                 }
@@ -168,74 +235,6 @@ function generateCustomSlideRequests(data) {
         });
     }
     
-    // セクション番号とタイトル
-    const sectionHeaderId = generateId();
-    requests.push({
-        createShape: {
-            objectId: sectionHeaderId,
-            shapeType: 'TEXT_BOX',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 300, unit: 'PT' },
-                    height: { magnitude: 40, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 80,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-    
-    requests.push({
-        insertText: {
-            objectId: sectionHeaderId,
-            text: '8. 撮影地',
-            insertionIndex: 0
-        }
-    });
-    
-    // セクションヘッダーのスタイル
-    requests.push({
-        updateTextStyle: {
-            objectId: sectionHeaderId,
-            textRange: { type: 'ALL' },
-            style: {
-                fontSize: { magnitude: 10, unit: 'PT' },
-                bold: true
-            },
-            fields: 'fontSize,bold'
-        }
-    });
-    
-    // 下線
-    const underlineId = generateId();
-    requests.push({
-        createLine: {
-            objectId: underlineId,
-            lineCategory: 'STRAIGHT',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 620, unit: 'PT' },
-                    height: { magnitude: 0, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 125,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
-
-    
     // 場所名フィールド
     const locationNameId = generateId();
     requests.push({
@@ -252,7 +251,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 140,
+                    translateY: 80,
                     unit: 'PT'
                 }
             }
@@ -292,7 +291,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 170,
+                    translateY: 110,
                     unit: 'PT'
                 }
             }
@@ -333,7 +332,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 200,
+                    translateY: 140,
                     unit: 'PT'
                 }
             }
@@ -374,7 +373,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 310,
+                    translateY: 250,
                     unit: 'PT'
                 }
             }
@@ -416,7 +415,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 420,
+                    translateY: 360,
                     unit: 'PT'
                 }
             }
@@ -456,7 +455,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 150,
-                    translateY: 470,
+                    translateY: 410,
                     unit: 'PT'
                 }
             }
