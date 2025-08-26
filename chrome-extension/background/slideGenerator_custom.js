@@ -201,28 +201,28 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // 下線
-    const underlineId = generateId();
-    requests.push({
-        createLine: {
-            objectId: underlineId,
-            lineCategory: 'STRAIGHT',
-            elementProperties: {
-                pageObjectId: slideId,
-                size: {
-                    width: { magnitude: 620, unit: 'PT' },
-                    height: { magnitude: 0, unit: 'PT' }
-                },
-                transform: {
-                    scaleX: 1,
-                    scaleY: 1,
-                    translateX: 50,
-                    translateY: 125,
-                    unit: 'PT'
-                }
-            }
-        }
-    });
+    // 下線を削除（コメントアウト）
+    // const underlineId = generateId();
+    // requests.push({
+    //     createLine: {
+    //         objectId: underlineId,
+    //         lineCategory: 'STRAIGHT',
+    //         elementProperties: {
+    //             pageObjectId: slideId,
+    //             size: {
+    //                 width: { magnitude: 620, unit: 'PT' },
+    //                 height: { magnitude: 0, unit: 'PT' }
+    //             },
+    //             transform: {
+    //                 scaleX: 1,
+    //                 scaleY: 1,
+    //                 translateX: 50,
+    //                 translateY: 125,
+    //                 unit: 'PT'
+    //             }
+    //         }
+    //     }
+    // });
     
     // 場所名フィールド
     const locationNameId = generateId();
