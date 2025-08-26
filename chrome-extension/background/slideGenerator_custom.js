@@ -136,9 +136,18 @@ function generateCustomSlideRequests(data) {
             textRange: { type: 'ALL' },
             style: {
                 fontSize: { magnitude: 10, unit: 'PT' },
-                bold: true
+                bold: true,
+                foregroundColor: {
+                    opaqueColor: {
+                        rgbColor: {
+                            red: 0.0,
+                            green: 0.0,
+                            blue: 0.0
+                        }
+                    }
+                }
             },
-            fields: 'fontSize,bold'
+            fields: 'fontSize,bold,foregroundColor'
         }
     });
     
@@ -196,13 +205,24 @@ function generateCustomSlideRequests(data) {
         }
     });
     
-    // URLテキストのフォントサイズを10ptに設定
+    // URLテキストのフォントサイズを10pt、文字色を黒に設定
     requests.push({
         updateTextStyle: {
             objectId: urlLinkId,
             textRange: { type: 'ALL' },
-            style: { fontSize: { magnitude: 10, unit: 'PT' } },
-            fields: 'fontSize'
+            style: { 
+                fontSize: { magnitude: 10, unit: 'PT' },
+                foregroundColor: {
+                    opaqueColor: {
+                        rgbColor: {
+                            red: 0.0,
+                            green: 0.0,
+                            blue: 0.0
+                        }
+                    }
+                }
+            },
+            fields: 'fontSize,foregroundColor'
         }
     });
     
@@ -270,8 +290,19 @@ function generateCustomSlideRequests(data) {
         updateTextStyle: {
             objectId: locationNameId,
             textRange: { type: 'ALL' },
-            style: { fontSize: { magnitude: 10, unit: 'PT' } },
-            fields: 'fontSize'
+            style: { 
+                fontSize: { magnitude: 10, unit: 'PT' },
+                foregroundColor: {
+                    opaqueColor: {
+                        rgbColor: {
+                            red: 0.0,
+                            green: 0.0,
+                            blue: 0.0
+                        }
+                    }
+                }
+            },
+            fields: 'fontSize,foregroundColor'
         }
     });
     
@@ -293,7 +324,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 160,
+                    translateY: 300,
                     unit: 'PT'
                 }
             }
@@ -313,132 +344,21 @@ function generateCustomSlideRequests(data) {
         updateTextStyle: {
             objectId: trainAccessId,
             textRange: { type: 'ALL' },
-            style: { fontSize: { magnitude: 10, unit: 'PT' } },
-            fields: 'fontSize'
+            style: { 
+                fontSize: { magnitude: 10, unit: 'PT' },
+                foregroundColor: {
+                    opaqueColor: {
+                        rgbColor: {
+                            red: 0.0,
+                            green: 0.0,
+                            blue: 0.0
+                        }
+                    }
+                }
+            },
+            fields: 'fontSize,foregroundColor'
         }
     });
-    
-    // // アクセス（車の場合）セクション
-    // const carAccessHeaderId = generateId();
-    // requests.push({
-    //     createShape: {
-    //         objectId: carAccessHeaderId,
-    //         shapeType: 'TEXT_BOX',
-    //         elementProperties: {
-    //             pageObjectId: slideId,
-    //             size: {
-    //                 width: { magnitude: 600, unit: 'PT' },
-    //                 height: { magnitude: 100, unit: 'PT' }
-    //             },
-    //             transform: {
-    //                 scaleX: 1,
-    //                 scaleY: 1,
-    //                 translateX: 50,
-    //                 translateY: 270,
-    //                 unit: 'PT'
-    //             }
-    //         }
-    //     }
-    // });
-    
-    // requests.push({
-    //     insertText: {
-    //         objectId: carAccessHeaderId,
-    //         text: `【車の場合】\n${data.carAccess || '記載無し'}`,
-    //         insertionIndex: 0
-    //     }
-    // });
-    
-    // requests.push({
-    //     updateTextStyle: {
-    //         objectId: carAccessHeaderId,
-    //         textRange: { type: 'ALL' },
-    //         style: { fontSize: { magnitude: 10, unit: 'PT' } },
-    //         fields: 'fontSize'
-    //     }
-    // });
-    
-    
-    
-    // // 駐車場セクション
-    // const parkingHeaderId = generateId();
-    // requests.push({
-    //     createShape: {
-    //         objectId: parkingHeaderId,
-    //         shapeType: 'TEXT_BOX',
-    //         elementProperties: {
-    //             pageObjectId: slideId,
-    //             size: {
-    //                 width: { magnitude: 200, unit: 'PT' },
-    //                 height: { magnitude: 50, unit: 'PT' }
-    //             },
-    //             transform: {
-    //                 scaleX: 1,
-    //                 scaleY: 1,
-    //                 translateX: 50,
-    //                 translateY: 380,
-    //                 unit: 'PT'
-    //             }
-    //         }
-    //     }
-    // });
-    
-    // requests.push({
-    //     insertText: {
-    //         objectId: parkingHeaderId,
-    //         text: '駐車場：',
-    //         insertionIndex: 0
-    //     }
-    // });
-    
-    // requests.push({
-    //     updateTextStyle: {
-    //         objectId: parkingHeaderId,
-    //         textRange: { type: 'ALL' },
-    //         style: { fontSize: { magnitude: 10, unit: 'PT' } },
-    //         fields: 'fontSize'
-    //     }
-    // });
-    
-    // // 駐車場詳細
-    // const parkingDetailId = generateId();
-    // requests.push({
-    //     createShape: {
-    //         objectId: parkingDetailId,
-    //         shapeType: 'TEXT_BOX',
-    //         elementProperties: {
-    //             pageObjectId: slideId,
-    //             size: {
-    //                 width: { magnitude: 500, unit: 'PT' },
-    //                 height: { magnitude: 60, unit: 'PT' }
-    //             },
-    //             transform: {
-    //                 scaleX: 1,
-    //                 scaleY: 1,
-    //                 translateX: 150,
-    //                 translateY: 430,
-    //                 unit: 'PT'
-    //             }
-    //         }
-    //     }
-    // });
-    
-    // requests.push({
-    //     insertText: {
-    //         objectId: parkingDetailId,
-    //         text: data.parkingInfo || '記載無し',
-    //         insertionIndex: 0
-    //     }
-    // });
-    
-    // requests.push({
-    //     updateTextStyle: {
-    //         objectId: parkingDetailId,
-    //         textRange: { type: 'ALL' },
-    //         style: { fontSize: { magnitude: 10, unit: 'PT' } },
-    //         fields: 'fontSize'
-    //     }
-    // });
     
     return requests;
 }
