@@ -129,6 +129,16 @@ function generateCustomSlideRequests(data) {
         }
     });
     
+    // URLテキストのフォントサイズを10ptに設定
+    requests.push({
+        updateTextStyle: {
+            objectId: urlLinkId,
+            textRange: { type: 'ALL' },
+            style: { fontSize: { magnitude: 10, unit: 'PT' } },
+            fields: 'fontSize'
+        }
+    });
+    
     // URLをクリック可能なリンクに設定
     if (data.sourceUrl) {
         requests.push({
@@ -150,13 +160,80 @@ function generateCustomSlideRequests(data) {
                             }
                         }
                     },
-                    underline: true
+                    underline: true,
+                    fontSize: { magnitude: 10, unit: 'PT' }
                 },
-                fields: 'link,foregroundColor,underline'
+                fields: 'link,foregroundColor,underline,fontSize'
             }
         });
     }
     
+    // セクション番号とタイトル
+    const sectionHeaderId = generateId();
+    requests.push({
+        createShape: {
+            objectId: sectionHeaderId,
+            shapeType: 'TEXT_BOX',
+            elementProperties: {
+                pageObjectId: slideId,
+                size: {
+                    width: { magnitude: 300, unit: 'PT' },
+                    height: { magnitude: 40, unit: 'PT' }
+                },
+                transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 80,
+                    unit: 'PT'
+                }
+            }
+        }
+    });
+    
+    requests.push({
+        insertText: {
+            objectId: sectionHeaderId,
+            text: '8. 撮影地',
+            insertionIndex: 0
+        }
+    });
+    
+    // セクションヘッダーのスタイル
+    requests.push({
+        updateTextStyle: {
+            objectId: sectionHeaderId,
+            textRange: { type: 'ALL' },
+            style: {
+                fontSize: { magnitude: 10, unit: 'PT' },
+                bold: true
+            },
+            fields: 'fontSize,bold'
+        }
+    });
+    
+    // 下線
+    const underlineId = generateId();
+    requests.push({
+        createLine: {
+            objectId: underlineId,
+            lineCategory: 'STRAIGHT',
+            elementProperties: {
+                pageObjectId: slideId,
+                size: {
+                    width: { magnitude: 620, unit: 'PT' },
+                    height: { magnitude: 0, unit: 'PT' }
+                },
+                transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 125,
+                    unit: 'PT'
+                }
+            }
+        }
+    });
 
     
     // 場所名フィールド
@@ -175,7 +252,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 50,
+                    translateY: 140,
                     unit: 'PT'
                 }
             }
@@ -215,7 +292,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 80,
+                    translateY: 170,
                     unit: 'PT'
                 }
             }
@@ -256,7 +333,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 110,
+                    translateY: 200,
                     unit: 'PT'
                 }
             }
@@ -297,7 +374,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 250,
+                    translateY: 310,
                     unit: 'PT'
                 }
             }
@@ -339,7 +416,7 @@ function generateCustomSlideRequests(data) {
                     scaleX: 1,
                     scaleY: 1,
                     translateX: 50,
-                    translateY: 350,
+                    translateY: 420,
                     unit: 'PT'
                 }
             }
