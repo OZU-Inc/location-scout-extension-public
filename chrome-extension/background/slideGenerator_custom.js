@@ -241,9 +241,9 @@ function generateCustomSlideRequests(data) {
                     foregroundColor: {
                         opaqueColor: {
                             rgbColor: {
-                                red: 0.0,
-                                green: 0.0,
-                                blue: 0.0
+                                red: 14.0,
+                                green: 66.0,
+                                blue: 171.0
                             }
                         }
                     },
