@@ -113,11 +113,33 @@
             <div class="settings-group">
                 <div class="settings-group-title">📊 スライド設定</div>
                 <div class="settings-section">
-                    <label for="slide-template-id">スライドテンプレートID (オプション):</label>
-                    <input type="text" id="slide-template-id" placeholder="空欄でデフォルトテンプレート使用">
-                    <small>🎨 既存のGoogleスライドをテンプレートとして使用<br>
+                    <label for="slide-folder-id">保存先フォルダID:</label>
+                    <input type="text" id="slide-folder-id" placeholder="GoogleドライブフォルダID">
+                    <button id="select-folder-btn" class="secondary-btn" style="margin-top: 5px; font-size: 12px;">
+                        📁 フォルダを選択
+                    </button>
+                    <small>📁 スライドを保存するフォルダのID<br>
+                    例: drive.google.com/drive/folders/[ここがID]</small>
+                </div>
+
+                <div class="settings-section">
+                    <label for="slide-mode">スライド生成モード:</label>
+                    <select id="slide-mode">
+                        <option value="new">新規作成</option>
+                        <option value="append">マスタースライドに追加</option>
+                        <option value="overwrite">マスタースライドを上書き</option>
+                    </select>
+                </div>
+
+                <div class="settings-section" id="master-slide-section" style="display: none;">
+                    <label for="master-slide-id">マスタースライドID:</label>
+                    <input type="text" id="master-slide-id" placeholder="情報を蓄積するスライドのID">
+                    <button id="select-master-slide-btn" class="secondary-btn" style="margin-top: 5px; font-size: 12px;">
+                        📊 スライドを選択
+                    </button>
+                    <small>📊 ロケ地情報を蓄積するマスタースライドのID<br>
                     例: docs.google.com/presentation/d/[ここがID]/edit<br>
-                    テンプレート内で {{場所名}} {{住所}} などのプレースホルダーが置換されます</small>
+                    このスライドに新しい情報が追加されます</small>
                 </div>
             </div>
 

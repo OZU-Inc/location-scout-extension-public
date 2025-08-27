@@ -1,13 +1,45 @@
-export async function createCustomFormatSlide(locationData, authToken) {
+export async function createCustomFormatSlide(locationData, authToken, settings = {}) {
     try {
-        const presentation = await createPresentation(locationData.locationName, authToken);
-        const presentationId = presentation.presentationId;
+        console.log('🎯 スライド生成設定:', settings);
         
-        const slideRequests = generateCustomSlideRequests(locationData);
+        let presentationId;
+        let slideUrl;
         
-        await batchUpdate(presentationId, slideRequests, authToken);
+        if (settings.slideMode === 'append' && settings.masterSlideId) {
+            // 既存のマスタースライドに新しいスライドを追加
+            console.log('📊 マスタースライドに追加モード:', settings.masterSlideId);
+            presentationId = settings.masterSlideId;
+            
+            const slideRequests = generateCustomSlideRequests(locationData);
+            await batchUpdate(presentationId, slideRequests, authToken);
+            
+            slideUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
+            
+        } else if (settings.slideMode === 'overwrite' && settings.masterSlideId) {
+            // 既存のマスタースライドを上書き
+            console.log('🔄 マスタースライドを上書きモード:', settings.masterSlideId);
+            presentationId = settings.masterSlideId;
+            
+            // 既存スライドをクリアしてから新しい内容を追加
+            await clearPresentationSlides(presentationId, authToken);
+            const slideRequests = generateCustomSlideRequests(locationData);
+            await batchUpdate(presentationId, slideRequests, authToken);
+            
+            slideUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
+            
+        } else {
+            // 新規作成モード
+            console.log('🆕 新規作成モード');
+            const presentation = await createPresentation(locationData.locationName, authToken, settings.slideFolderId);
+            presentationId = presentation.presentationId;
+            
+            const slideRequests = generateCustomSlideRequests(locationData);
+            await batchUpdate(presentationId, slideRequests, authToken);
+            
+            slideUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
+        }
         
-        const slideUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
+        console.log('✅ スライド生成完了:', slideUrl);
         return slideUrl;
         
     } catch (error) {
@@ -65,8 +97,8 @@ export async function createSlideFromTemplate(locationData, authToken, templateI
     }
 }
 
-async function createPresentation(title, authToken) {
-    const response = await fetch('https://slides.googleapis.com/v1/presentations', {
+async function createPresentation(title, authToken, folderId = null) {
+    const presentation = await fetch('https://slides.googleapis.com/v1/presentations', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${authToken}`,
@@ -77,11 +109,94 @@ async function createPresentation(title, authToken) {
         })
     });
     
-    if (!response.ok) {
-        throw new Error(`プレゼンテーション作成失敗: ${response.statusText}`);
+    if (!presentation.ok) {
+        throw new Error(`プレゼンテーション作成失敗: ${presentation.statusText}`);
     }
     
-    return await response.json();
+    const presentationData = await presentation.json();
+    
+    // フォルダが指定されている場合は移動
+    if (folderId) {
+        try {
+            await moveFileToFolder(presentationData.presentationId, folderId, authToken);
+            console.log('📁 スライドをフォルダに移動しました:', folderId);
+        } catch (error) {
+            console.warn('フォルダ移動に失敗しました:', error);
+        }
+    }
+    
+    return presentationData;
+}
+
+async function moveFileToFolder(fileId, folderId, authToken) {
+    // まずファイルの現在の親を取得
+    const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=parents`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    
+    if (!fileResponse.ok) {
+        throw new Error('ファイル情報取得失敗');
+    }
+    
+    const fileData = await fileResponse.json();
+    const previousParents = fileData.parents ? fileData.parents.join(',') : '';
+    
+    // ファイルを新しいフォルダに移動
+    const moveResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?addParents=${folderId}&removeParents=${previousParents}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    
+    if (!moveResponse.ok) {
+        throw new Error('ファイル移動失敗');
+    }
+    
+    return await moveResponse.json();
+}
+
+async function clearPresentationSlides(presentationId, authToken) {
+    // プレゼンテーションの情報を取得
+    const response = await fetch(`https://slides.googleapis.com/v1/presentations/${presentationId}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    
+    if (!response.ok) {
+        throw new Error('プレゼンテーション取得失敗');
+    }
+    
+    const presentation = await response.json();
+    const slides = presentation.slides || [];
+    
+    // 最初のスライド以外をすべて削除
+    const deleteRequests = slides.slice(1).map(slide => ({
+        deleteObject: {
+            objectId: slide.objectId
+        }
+    }));
+    
+    if (deleteRequests.length > 0) {
+        await batchUpdate(presentationId, deleteRequests, authToken);
+    }
+    
+    // 最初のスライドの内容をクリア
+    if (slides.length > 0) {
+        const firstSlide = slides[0];
+        const clearRequests = [];
+        
+        if (firstSlide.pageElements) {
+            firstSlide.pageElements.forEach(element => {
+                clearRequests.push({
+                    deleteObject: {
+                        objectId: element.objectId
+                    }
+                });
+            });
+        }
+        
+        if (clearRequests.length > 0) {
+            await batchUpdate(presentationId, clearRequests, authToken);
+        }
+    }
 }
 
 function generateCustomSlideRequests(data) {
@@ -241,9 +356,9 @@ function generateCustomSlideRequests(data) {
                     foregroundColor: {
                         opaqueColor: {
                             rgbColor: {
-                                red: 14.0,
-                                green: 66.0,
-                                blue: 171.0
+                                red: 14.0/255.0,
+                                green: 66.0/255.0,
+                                blue: 171.0/255.0
                             }
                         }
                     },

@@ -40,6 +40,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'generateSlide') {
         handleSlideGeneration(request, sendResponse);    // メイン処理: スライド生成
         return true;  // 非同期レスポンス有効化
+    } else if (request.action === 'selectFolder') {
+        handleFolderSelection(sendResponse);            // フォルダ選択
+        return true;
+    } else if (request.action === 'selectMasterSlide') {
+        handleMasterSlideSelection(sendResponse);       // マスタースライド選択
+        return true;
     } else if (request.action === 'encryptApiKey') {
         handleEncryptApiKey(request, sendResponse);      // APIキー暗号化
         return true;
@@ -185,16 +191,13 @@ async function handleSlideGeneration(request, sendResponse) {
             
         } else {
             try {
-                // スライド作成方法を設定に基づいて決定
-                if (request.settings.slideTemplateId) {
-                    // 既存のテンプレートファイルを複製して使用
-                    slideUrl = await createSlideFromTemplate(locationData, authToken, request.settings.slideTemplateId);
-                    console.log('✅ テンプレートからスライド生成完了:', slideUrl);
-                } else {
-                    // デフォルトのカスタムフォーマット（ロケ地テンプレート）を使用
-                    slideUrl = await createCustomFormatSlide(locationData, authToken);
-                    console.log('✅ カスタムスライド生成完了:', slideUrl);
-                }
+                // スライド作成（マスタースライド蓄積モード対応）
+                slideUrl = await createCustomFormatSlide(locationData, authToken, {
+                    slideMode: request.settings.slideMode || 'new',
+                    masterSlideId: request.settings.masterSlideId,
+                    slideFolderId: request.settings.slideFolderId
+                });
+                console.log('✅ スライド生成完了:', slideUrl);
             } catch (slideError) {
                 console.error('❌ スライド生成エラー:', slideError);
                 slideUrl = '#スライド生成エラー';
@@ -316,6 +319,110 @@ async function sendProgressUpdate(stage) {
         console.log(`進捗更新: ${stage}`);
     } catch (error) {
         console.log('進捗更新通知エラー:', error);
+    }
+}
+
+/**
+ * フォルダ選択処理
+ * Google Drive APIを使用してフォルダ一覧を取得し、ユーザーが選択できるようにする
+ */
+async function handleFolderSelection(sendResponse) {
+    try {
+        console.log('📁 Starting folder selection...');
+        
+        // OAuth認証を取得
+        const authToken = await getAuthToken();
+        if (!authToken) {
+            throw new Error('Google Drive認証が必要です');
+        }
+        
+        // Drive APIでフォルダ一覧を取得
+        const response = await fetch(
+            'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.folder%27&fields=files(id%2Cname)&orderBy=name',
+            {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            }
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Drive API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const folders = data.files || [];
+        
+        if (folders.length === 0) {
+            throw new Error('フォルダが見つかりませんでした');
+        }
+        
+        // 簡易選択：最初のフォルダを返す（実装では選択UIが必要）
+        const selectedFolder = folders[0];
+        
+        sendResponse({
+            success: true,
+            folderId: selectedFolder.id,
+            folderName: selectedFolder.name,
+            availableFolders: folders
+        });
+        
+    } catch (error) {
+        console.error('Folder selection error:', error);
+        sendResponse({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+}
+
+/**
+ * マスタースライド選択処理
+ * Google Slides APIを使用してスライド一覧を取得し、ユーザーが選択できるようにする
+ */
+async function handleMasterSlideSelection(sendResponse) {
+    try {
+        console.log('📊 Starting master slide selection...');
+        
+        // OAuth認証を取得
+        const authToken = await getAuthToken();
+        if (!authToken) {
+            throw new Error('Google Slides認証が必要です');
+        }
+        
+        // Drive APIでGoogle Slidesファイル一覧を取得
+        const response = await fetch(
+            'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.presentation%27&fields=files(id%2Cname)&orderBy=modifiedTime%20desc',
+            {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            }
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Drive API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const slides = data.files || [];
+        
+        if (slides.length === 0) {
+            throw new Error('Google Slidesファイルが見つかりませんでした');
+        }
+        
+        // 簡易選択：最初のスライドを返す（実装では選択UIが必要）
+        const selectedSlide = slides[0];
+        
+        sendResponse({
+            success: true,
+            slideId: selectedSlide.id,
+            slideName: selectedSlide.name,
+            availableSlides: slides
+        });
+        
+    } catch (error) {
+        console.error('Master slide selection error:', error);
+        sendResponse({ 
+            success: false, 
+            error: error.message 
+        });
     }
 }
 
