@@ -13,7 +13,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         retryBtn: document.getElementById('retry-btn'),
         settingsModal: document.getElementById('settings-modal'),
         apiKeyInput: document.getElementById('api-key'),
-        slideTemplateIdInput: document.getElementById('slide-template-id'),
+        slideFolderIdInput: document.getElementById('slide-folder-id'),
+        slideModeSelect: document.getElementById('slide-mode'),
+        masterSlideIdInput: document.getElementById('master-slide-id'),
+        masterSlideSection: document.getElementById('master-slide-section'),
         spreadsheetIdInput: document.getElementById('spreadsheet-id'),
         saveToSheetsCheckbox: document.getElementById('save-to-sheets'),
         userNameInput: document.getElementById('user-name'),
@@ -32,8 +35,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentTab = null;
     let settings = {
         apiKey: '',
-        template: 'filming_location',
-        slideTemplateId: '',
+        slideFolderId: '',
+        slideMode: 'new',
+        masterSlideId: '',
         spreadsheetId: '',
         saveToSheets: true,
         userName: '',
@@ -76,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             elements.pageTitle.textContent = tab.title || 'タイトルなし';
 
             const stored = await chrome.storage.local.get([
+                'slideFolderId', 'slideMode', 'masterSlideId',
                 'spreadsheetId', 'saveToSheets', 'userName', 
                 'teamSharing', 'sharedFolderId', 'masterSpreadsheetId'
             ]);
@@ -108,7 +113,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             }
-            if (stored.slideTemplateId) settings.slideTemplateId = stored.slideTemplateId;
+            if (stored.slideFolderId) settings.slideFolderId = stored.slideFolderId;
+            if (stored.slideMode) settings.slideMode = stored.slideMode;
+            if (stored.masterSlideId) settings.masterSlideId = stored.masterSlideId;
             if (stored.spreadsheetId) settings.spreadsheetId = stored.spreadsheetId;
             if (stored.saveToSheets !== undefined) settings.saveToSheets = stored.saveToSheets;
             if (stored.userName) settings.userName = stored.userName;
@@ -117,7 +124,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (stored.masterSpreadsheetId) settings.masterSpreadsheetId = stored.masterSpreadsheetId;
 
             elements.apiKeyInput.value = settings.apiKey ? '••••••••' : '';
-            elements.slideTemplateIdInput.value = settings.slideTemplateId || '';
+            elements.slideFolderIdInput.value = settings.slideFolderId || '';
+            elements.slideModeSelect.value = settings.slideMode || 'new';
+            elements.masterSlideIdInput.value = settings.masterSlideId || '';
             elements.spreadsheetIdInput.value = settings.spreadsheetId || '';
             elements.saveToSheetsCheckbox.checked = settings.saveToSheets;
             elements.userNameInput.value = settings.userName || '';
@@ -126,6 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             elements.masterSpreadsheetIdInput.value = settings.masterSpreadsheetId || '';
             
             toggleTeamSharingSection();
+            toggleMasterSlideSection();
 
             console.log('Final API key status:', !!settings.apiKey);
             console.log('API key starts with sk-:', settings.apiKey?.startsWith('sk-'));
@@ -215,18 +225,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             console.log('Values from DOM:', { apiKey: apiKey.length > 0, userName, spreadsheetId });
             
-            // 最小限の保存処理
+            // 全設定の保存処理
             if (apiKey && apiKey.length > 0) {
+                // DOM要素から全設定を取得
+                const slideFolderId = document.getElementById('slide-folder-id')?.value || '';
+                const slideMode = document.getElementById('slide-mode')?.value || 'new';
+                const masterSlideId = document.getElementById('master-slide-id')?.value || '';
+                const teamSharing = document.getElementById('team-sharing')?.checked || false;
+                const sharedFolderId = document.getElementById('shared-folder-id')?.value || '';
+                const masterSpreadsheetId = document.getElementById('master-spreadsheet-id')?.value || '';
+                const saveToSheets = document.getElementById('save-to-sheets')?.checked || true;
+                
                 await chrome.storage.local.set({ 
                     apiKey: apiKey,
                     userName: userName,
-                    spreadsheetId: spreadsheetId 
+                    spreadsheetId: spreadsheetId,
+                    slideFolderId: slideFolderId,
+                    slideMode: slideMode,
+                    masterSlideId: masterSlideId,
+                    teamSharing: teamSharing,
+                    sharedFolderId: sharedFolderId,
+                    masterSpreadsheetId: masterSpreadsheetId,
+                    saveToSheets: saveToSheets
                 });
                 
                 // settingsオブジェクトも更新
                 settings.apiKey = apiKey;
                 settings.userName = userName;
                 settings.spreadsheetId = spreadsheetId;
+                settings.slideFolderId = slideFolderId;
+                settings.slideMode = slideMode;
+                settings.masterSlideId = masterSlideId;
+                settings.teamSharing = teamSharing;
+                settings.sharedFolderId = sharedFolderId;
+                settings.masterSpreadsheetId = masterSpreadsheetId;
+                settings.saveToSheets = saveToSheets;
                 
                 // 生成ボタンを有効化
                 elements.generateBtn.disabled = false;
@@ -286,7 +319,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         
-            settings.slideTemplateId = elements.slideTemplateIdInput.value;
+            settings.slideFolderId = elements.slideFolderIdInput.value;
+        settings.slideMode = elements.slideModeSelect.value;
+        settings.masterSlideId = elements.masterSlideIdInput.value;
             settings.spreadsheetId = elements.spreadsheetIdInput.value;
             settings.saveToSheets = elements.saveToSheetsCheckbox.checked;
             settings.userName = elements.userNameInput.value;
@@ -296,7 +331,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             console.log('Saving other settings...');
             await chrome.storage.local.set({
-                slideTemplateId: settings.slideTemplateId,
+                slideFolderId: settings.slideFolderId,
+                slideMode: settings.slideMode,
+                masterSlideId: settings.masterSlideId,
                 spreadsheetId: settings.spreadsheetId,
                 saveToSheets: settings.saveToSheets,
                 userName: settings.userName,
@@ -480,6 +517,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     elements.teamSharingCheckbox.addEventListener('change', toggleTeamSharingSection);
+    elements.slideModeSelect.addEventListener('change', toggleMasterSlideSection);
+
+    function toggleMasterSlideSection() {
+        const slideMode = elements.slideModeSelect.value;
+        if (slideMode === 'append' || slideMode === 'overwrite') {
+            elements.masterSlideSection.style.display = 'block';
+        } else {
+            elements.masterSlideSection.style.display = 'none';
+        }
+    }
 
     // DOM要素の再取得を試行（遅延ロードの場合）
     setTimeout(() => {
