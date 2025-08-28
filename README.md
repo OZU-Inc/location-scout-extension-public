@@ -92,6 +92,9 @@
 
 ## 📋 設定が必要な項目
 
+## ユーザー追加時の必須設定
+1. **OAuthユーザー追加@Google Cloud console** -Google Cloud console > APIとサービス > 認証情報 > OAuthサービス名 > 対象 > Add Users
+
 ### 必須設定
 1. **OpenAI APIキー** - 拡張機能の設定画面で入力（`sk-`から始まる完全なキー）
 2. **Google OAuth Client ID** - manifest.json の40行目を変更
