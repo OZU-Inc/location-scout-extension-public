@@ -185,6 +185,4 @@ GPT-4o-miniのVision APIを使用して、画像を自動判定します。
 2. 拡張機能の「Service Worker」をクリック
 3. Consoleタブでログを確認
 
-## ライセンス
 
-MIT License
