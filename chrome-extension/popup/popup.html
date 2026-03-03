@@ -1,172 +1,145 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Location Scout Slide Generator</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Location Scout v2</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📍 Location Scout</h1>
-            <p class="subtitle">スライド自動生成</p>
-        </header>
+  <div class="container">
+    <!-- ヘッダー -->
+    <header class="header">
+      <h1>Location Scout v2</h1>
+      <button id="settingsBtn" class="icon-btn" title="設定">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
 
-        <main>
-            <div id="status-area" class="status-area">
-                <div class="current-page">
-                    <label>現在のページ:</label>
-                    <div id="page-title" class="page-title">読み込み中...</div>
-                </div>
-            </div>
+    <!-- メイン画面 -->
+    <main id="mainView">
+      <div class="current-page">
+        <label>現在のページ</label>
+        <div id="currentUrl" class="url-display">読み込み中...</div>
+      </div>
 
-            <div class="action-buttons">
-                <button id="generate-btn" class="primary-btn">
-                    <span class="btn-icon">📊</span>
-                    スライドを生成
-                </button>
-                
-                <button id="settings-btn" class="secondary-btn">
-                    <span class="btn-icon">⚙️</span>
-                    設定
-                </button>
-            </div>
+      <div class="options">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enableCrawl" checked>
+          <span>関連ページも自動取得</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="saveImages" checked>
+          <span>画像を保存 (テスト: 上位2枚)</span>
+        </label>
+      </div>
 
-            <div id="progress-area" class="progress-area hidden">
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
-                <p id="progress-text" class="progress-text">処理中...</p>
-            </div>
+      <button id="startBtn" class="primary-btn">
+        <span class="btn-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+        </span>
+        情報を収集
+      </button>
 
-            <div id="result-area" class="result-area hidden">
-                <div class="success-message">
-                    <span class="success-icon">✅</span>
-                    <p>スライドが生成されました！</p>
-                </div>
-                <a id="slide-link" href="#" target="_blank" class="slide-link">
-                    Google Slidesで開く →
-                </a>
-            </div>
-
-            <div id="error-area" class="error-area hidden">
-                <div class="error-message">
-                    <span class="error-icon">⚠️</span>
-                    <p id="error-text">エラーが発生しました</p>
-                </div>
-                <button id="retry-btn" class="secondary-btn">再試行</button>
-            </div>
-        </main>
-
-        <footer>
-            <a href="#" id="help-link">ヘルプ</a>
-            <span class="separator">|</span>
-            <a href="#" id="feedback-link">フィードバック</a>
-        </footer>
-    </div>
-
-    <div id="settings-modal" class="modal hidden">
-        <div class="modal-content">
-            <h2>⚙️ 設定</h2>
-            
-            <div class="settings-group">
-                <div class="settings-group-title">🔑 必須設定</div>
-                <div class="settings-section">
-                    <label for="api-key">OpenAI API Key:</label>
-                    <input type="password" id="api-key" placeholder="sk-...">
-                    <small>APIキーは暗号化して安全に保存されます</small>
-                </div>
-                
-                <div class="settings-section">
-                    <label for="user-name">登録者名:</label>
-                    <input type="text" id="user-name" placeholder="山田太郎">
-                    <small>チームで誰が登録したかを識別します</small>
-                </div>
-            </div>
-
-
-            <div class="settings-group">
-                <div class="settings-group-title">👥 チーム共有設定</div>
-                <div class="settings-section">
-                    <label>
-                        <input type="checkbox" id="team-sharing">
-                        チーム共有モードを有効にする
-                    </label>
-                </div>
-
-                <div class="settings-section" id="team-settings" style="display: none;">
-                    <label for="shared-folder-id">共有フォルダID:</label>
-                    <input type="text" id="shared-folder-id" placeholder="1aB2cD3eF4gH5iJ6kL7mN8oP9qR0sT1uV">
-                    <small>📁 管理者が作成した共有フォルダのID<br>
-                    例: drive.google.com/drive/folders/[ここがID]</small>
-                </div>
-
-                <div class="settings-section" id="master-db-settings" style="display: none;">
-                    <label for="master-spreadsheet-id">マスターDB ID:</label>
-                    <input type="text" id="master-spreadsheet-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
-                    <small>📊 チーム統一スプレッドシートのID<br>
-                    例: docs.google.com/spreadsheets/d/[ここがID]/edit</small>
-                </div>
-            </div>
-
-            <div class="settings-group">
-                <div class="settings-group-title">📊 スライド設定</div>
-                <div class="settings-section">
-                    <label for="slide-folder-id">保存先フォルダID:</label>
-                    <input type="text" id="slide-folder-id" placeholder="GoogleドライブフォルダID">
-                    <button id="select-folder-btn" class="secondary-btn" style="margin-top: 5px; font-size: 12px;">
-                        📁 フォルダを選択
-                    </button>
-                    <small>📁 スライドを保存するフォルダのID<br>
-                    例: drive.google.com/drive/folders/[ここがID]</small>
-                </div>
-
-                <div class="settings-section">
-                    <label for="slide-mode">スライド生成モード:</label>
-                    <select id="slide-mode">
-                        <option value="new">新規作成</option>
-                        <option value="append">マスタースライドに追加</option>
-                        <option value="overwrite">マスタースライドを上書き</option>
-                    </select>
-                </div>
-
-                <div class="settings-section" id="master-slide-section" style="display: none;">
-                    <label for="master-slide-id">マスタースライドID:</label>
-                    <input type="text" id="master-slide-id" placeholder="情報を蓄積するスライドのID">
-                    <button id="select-master-slide-btn" class="secondary-btn" style="margin-top: 5px; font-size: 12px;">
-                        📊 スライドを選択
-                    </button>
-                    <small>📊 ロケ地情報を蓄積するマスタースライドのID<br>
-                    例: docs.google.com/presentation/d/[ここがID]/edit<br>
-                    このスライドに新しい情報が追加されます</small>
-                </div>
-            </div>
-
-            <div class="settings-group">
-                <div class="settings-group-title">💾 個人データ設定</div>
-                <div class="settings-section">
-                    <label for="spreadsheet-id">個人用スプレッドシートID:</label>
-                    <input type="text" id="spreadsheet-id" placeholder="空欄で新規作成 または 既存のID">
-                    <small>個人用バックアップ（オプション）</small>
-                </div>
-
-                <div class="settings-section">
-                    <label>
-                        <input type="checkbox" id="save-to-sheets">
-                        スプレッドシートに自動保存
-                    </label>
-                </div>
-            </div>
-
-            <div class="modal-buttons">
-                <button id="test-button" class="secondary-btn" style="background: orange;">🧪 テスト</button>
-                <button id="save-settings" class="primary-btn">保存</button>
-                <button id="cancel-settings" class="secondary-btn">キャンセル</button>
-            </div>
+      <!-- 進捗表示 -->
+      <div id="progressSection" class="progress-section hidden">
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
         </div>
-    </div>
+        <div id="progressText" class="progress-text">準備中...</div>
+        <div id="progressDetail" class="progress-detail"></div>
+      </div>
 
-    <script src="popup.js"></script>
+      <!-- 結果表示 -->
+      <div id="resultSection" class="result-section hidden">
+        <h3>処理完了</h3>
+        <div id="resultContent"></div>
+        <div id="errorList" class="error-list hidden">
+          <h4>スキップされた項目</h4>
+          <ul id="errorItems"></ul>
+        </div>
+      </div>
+    </main>
+
+    <!-- 設定画面 -->
+    <div id="settingsView" class="hidden">
+      <div class="settings-header">
+        <button id="backBtn" class="icon-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <h2>設定</h2>
+      </div>
+
+      <div class="settings-content">
+        <!-- API設定 -->
+        <section class="settings-section">
+          <h3>API設定</h3>
+          <div class="form-group">
+            <label for="apiKey">OpenAI API Key</label>
+            <input type="password" id="apiKey" placeholder="sk-...">
+          </div>
+        </section>
+
+        <!-- Google Drive設定 -->
+        <section class="settings-section">
+          <h3>Google Drive設定</h3>
+          <div class="form-group">
+            <label for="parentFolderId">親フォルダID</label>
+            <input type="text" id="parentFolderId" placeholder="Google DriveのフォルダID">
+            <small>保存先フォルダのIDを入力（URLの/folders/以降の文字列）</small>
+          </div>
+          <button id="selectFolderBtn" class="secondary-btn">フォルダを選択</button>
+        </section>
+
+        <!-- スプレッドシート設定 -->
+        <section class="settings-section">
+          <h3>スプレッドシート設定</h3>
+          <div class="form-group">
+            <label for="spreadsheetId">スプレッドシートID</label>
+            <input type="text" id="spreadsheetId" placeholder="スプレッドシートID">
+          </div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="saveToSheets" checked>
+            <span>スプレッドシートに保存</span>
+          </label>
+        </section>
+
+        <!-- スライド設定 -->
+        <section class="settings-section">
+          <h3>スライド設定</h3>
+          <div class="form-group">
+            <label for="slideMode">スライド作成モード</label>
+            <select id="slideMode">
+              <option value="new">新規作成</option>
+              <option value="append">既存に追加</option>
+            </select>
+          </div>
+          <div class="form-group" id="masterSlideGroup">
+            <label for="masterSlideId">マスタースライドID</label>
+            <input type="text" id="masterSlideId" placeholder="追加先のスライドID">
+            <small>スライドURLの/d/以降、/edit前の文字列</small>
+          </div>
+        </section>
+
+        <!-- 認証 -->
+        <section class="settings-section">
+          <h3>Google認証</h3>
+          <div id="authStatus" class="auth-status">未認証</div>
+          <button id="authBtn" class="secondary-btn">Googleアカウントでログイン</button>
+        </section>
+
+        <button id="saveSettingsBtn" class="primary-btn">設定を保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
 </body>
 </html>

@@ -1,210 +1,190 @@
-# Location Scout Extension - ロケハン自動化Chrome拡張機能
+# Location Scout v2
 
-現在のWebページから場所情報を自動抽出し、GPT-4で解析してロケハン用スライドとスプレッドシートを生成するChrome拡張機能です。
+ロケ地情報を自動収集・整理するChrome拡張機能
 
-![Version](https://img.shields.io/badge/version-1.6-blue.svg)
-![Status](https://img.shields.io/badge/status-Stable-green.svg)
-![Chrome Extension](https://img.shields.io/badge/platform-Chrome%20Extension-yellow.svg)
+## 概要
 
-## 🎯 プロジェクト概要
+Webサイトからロケ地・撮影スタジオの情報を自動収集し、Google Drive/Slides/Sheetsに整理して保存するChrome拡張機能です。
 
-この拡張機能は映像制作チーム向けのロケハン（ロケーション・ハンティング）を効率化するツールです。Webページを閲覧中にワンクリックで場所情報を抽出し、統一されたフォーマットでドキュメント化できます。
+## 主な機能
 
-## ✨ 主な機能
+- **自動情報抽出**: ページからロケ地名、住所、アクセス、料金などを自動抽出
+- **複数ページクロール**: 関連ページ（料金、アクセス、ギャラリー等）を自動検出して情報収集
+- **AI画像選別**: GPT-4o-miniのVision APIで画像を判定し、ロケ地写真のみを自動保存
+- **スライド自動生成**: 収集した情報からGoogle Slidesを自動作成
+- **スプレッドシート連携**: ロケハンDBへの自動登録
 
-- **自動コンテンツ抽出**: 現在のWebページから場所情報を自動抽出
-- **GPT-4分析**: OpenAI GPT-4 APIによる高精度な情報構造化
-- **スライド自動生成**: 統一フォーマットでGoogle Slidesを生成
-- **データベース管理**: Google Sheetsでの情報管理
-- **チーム共有**: 複数メンバーでの共同作業対応
-- **進捗表示**: 5段階の処理進捗をリアルタイム表示
+## 技術スタック
 
-## 📊 処理フロー
+- Chrome Extension Manifest V3 (Service Worker)
+- OpenAI GPT-4o-mini (Vision API)
+- Google APIs (Drive, Slides, Sheets)
 
-1. **ページコンテンツ抽出** - 現在のWebページから関連情報を取得
-2. **GPT-4解析** - OpenAI APIで場所情報を構造化
-3. **Google認証** - OAuth 2.0による安全な認証
-4. **スライド生成** - 「8. 撮影地」フォーマットでスライド作成
-5. **スプレッドシート保存** - データベースへの自動保存
-
-## 🗂️ 抽出データ項目
-
-- **場所名** - 施設・場所の名称
-- **住所** - 詳細な所在地
-- **電車アクセス** - 公共交通機関でのアクセス方法
-- **車アクセス** - 自動車でのアクセス方法
-- **駐車場情報** - 駐車場の有無・料金情報
-- **電話番号** - 連絡先（ハイフン区切り形式）
-- **ソース情報** - 情報取得元の詳細（ページタイトル、セクション名、URL）
-
-## 🔧 技術仕様
-
-### アーキテクチャ
-- **Manifest V3**: 最新のChrome Extension仕様
-- **Service Worker**: バックグラウンド処理（静的importのみ）
-- **Content Scripts**: Webページ情報抽出（動的注入対応）
-- **エラーハンドリング**: 各段階での詳細な検証とフォールバック
-
-### 使用API
-- **OpenAI GPT-4 API**: コンテンツ解析
-- **Google Slides API**: プレゼンテーション生成
-- **Google Sheets API**: データ管理
-- **Google Drive API**: ファイル操作
-
-### セキュリティ
-- **AES-GCM 256bit暗号化**: APIキーの安全な保存
-- **OAuth 2.0**: Google APIの安全な認証
-- **個人認証**: 各メンバーが個別にGoogle認証
-
-## 📦 インストール方法
-
-### 必要な準備
-1. **OpenAI APIキー**: GPT-4 APIアクセス権限付き
-2. **Google Cloud Console**: OAuth 2.0クライアントID
-3. **Google APIs有効化**: 3つのAPIの有効化が必要
-
-### 手順
-1. `location-scout-extension-latest.zip`をダウンロード・解凍
-2. Chrome拡張機能ページ（`chrome://extensions/`）で「デベロッパーモード」を有効化
-3. 「パッケージ化されていない拡張機能を読み込む」で解凍フォルダを選択
-
-詳細な設定手順は[MANUAL_SETUP_CHECKLIST.md](./MANUAL_SETUP_CHECKLIST.md)を参照してください。
-
-## 🔧 開発状況
-
-### 最新バージョン v1.6 (2024-08-21)
-- ✅ **変数名衝突問題を解決**: content.jsの変数スコープ修正
-- ✅ **エラーハンドリング強化**: 各段階での詳細なエラー検証
-- ✅ **Service Worker安定化**: 静的インポートでの安定動作
-- ✅ **Content Script動的注入**: ページ読み込み状態に関係なく動作
-
-### 解決済みの問題
-- ❌ Service Workerの動的import制限 → ✅ 静的importに変更
-- ❌ Content Script接続エラー → ✅ 動的注入機能追加  
-- ❌ sendResponse未定義エラー → ✅ スコープ問題修正
-- ❌ プロパティアクセスエラー → ✅ nullチェック追加
-- ❌ 変数名衝突 → ✅ 変数スコープ整理
-
-### 動作確認済み環境
-- Chrome 120+ (Manifest V3対応)
-- 通常のWebページ (HTTP/HTTPS)
-- システムページでの適切なエラー表示
-
-## 📋 設定が必要な項目
-
-## ユーザー追加時の必須設定
-1. **OAuthユーザー追加@Google Cloud console** -Google Cloud console > APIとサービス > 認証情報 > OAuthサービス名 > 対象 > Add Users
-
-### 必須設定
-1. **OpenAI APIキー** - 拡張機能の設定画面で入力（`sk-`から始まる完全なキー）
-2. **Google OAuth Client ID** - manifest.json の40行目を変更
-3. **Google APIs有効化** - Google Cloud Consoleで以下の3つのAPIを有効化:
-   - **Google Slides API** - スライド作成用
-   - **Google Sheets API** - スプレッドシート保存用
-   - **Google Drive API** - ファイル操作用
-
-### オプション設定
-- 個人用スプレッドシートID
-- チーム共有用マスタースプレッドシートID
-- ユーザー名（チーム共有時）
-
-## 🚀 使用方法
-
-1. ロケ地情報が掲載されているWebページを開く
-2. 拡張機能アイコンをクリック
-3. 「スライドを生成」ボタンを押す
-4. 進捗表示（1→2→3→4→5）を確認しながら完了を待つ
-5. 生成されたスライドとスプレッドシートを確認
-
-### 生成されるスライド形式
-```
-URL: https://example.com ← クリック可能
-
-8. 撮影地
-──────────────────────
-
-場所名：東京スカイツリー
-住所：〒131-0045 東京都墨田区押上1-1-2
-
-アクセス
-【電車の場合】
-  東武スカイツリーライン「とうきょうスカイツリー」駅すぐ
-
-【車の場合】
-  首都高速6号向島線「向島」出口より約10分
-
-駐車場：有り - 30分350円（最初の1時間無料）
-```
-
-## 📁 ファイル構成
+## フォルダ構成
 
 ```
 chrome-extension/
-├── manifest.json           # 拡張機能設定
-├── background/             # Service Worker
-│   ├── background.js       # メイン処理統括
-│   ├── gptAnalyzer.js      # GPT-4解析
-│   ├── slideGenerator_custom.js # スライド生成
-│   ├── sheetsManager.js    # Sheets管理
-│   ├── auth.js            # Google認証
-│   └── encryption.js      # 暗号化処理
-├── content/               # コンテンツ抽出
-│   └── content.js         # ページ情報取得
-├── popup/                 # UI
-│   ├── popup.html
-│   ├── popup.css
-│   └── popup.js
-└── icons/                 # アイコン
+├── manifest.json          # 拡張機能マニフェスト
+├── background/
+│   ├── background.js      # メイン処理統括
+│   ├── auth.js            # Google OAuth認証
+│   ├── driveManager.js    # Drive操作（フォルダ、画像保存）
+│   ├── crawler.js         # 複数ページクロール
+│   ├── gptAnalyzer.js     # GPT解析・AI画像選別
+│   ├── slideGenerator.js  # スライド生成
+│   └── sheetsManager.js   # スプレッドシート保存
+├── content/
+│   └── content.js         # ページ情報・画像抽出
+├── popup/
+│   ├── popup.html         # ポップアップUI
+│   ├── popup.css          # スタイル
+│   └── popup.js           # ポップアップ制御
+└── icons/                 # 拡張機能アイコン
 ```
 
-## 🆘 トラブルシューティング
+## 処理フロー
 
-### よくある問題
-- **API Key未設定**: OpenAI APIキーの入力確認（`sk-`から始まる完全なキー）
-- **Google OAuth設定が必要**: manifest.jsonのclient_id設定
-- **このページからは情報を取得できません**: 通常のWebページで実行しているか確認
-- **Service Worker非アクティブ**: 拡張機能の再読み込み
+```
+1. content.js: ページから情報・画像を抽出（最大40枚）
+   ├── テキスト情報（タイトル、住所、アクセス等）
+   ├── 画像URL（img, background-image, picture等）
+   └── 関連ページリンク
+       ↓
+2. crawler.js: 関連ページをクロール（最大5ページ）
+   └── アクセス、料金、ギャラリー等のページを自動検出
+       ↓
+3. gptAnalyzer.js: AI処理
+   ├── テキスト解析: 構造化された場所情報を抽出
+   └── 画像選別: Valid/Invalid判定（バッチ処理）
+       ├── Valid: ロケ地写真 → 保存
+       └── Invalid: イラスト、アイコン等 → 除外
+           ↓
+4. driveManager.js: Google Driveに保存
+   └── フォルダ作成、画像保存
+       ↓
+5. slideGenerator.js: スライド生成
+       ↓
+6. sheetsManager.js: スプレッドシートに登録
+```
 
-### エラー確認方法
-1. 拡張機能アイコン右クリック → 「ポップアップを検査」
-2. Chrome拡張機能ページ → Service Worker「検査」
-3. アクティブタブでF12 → Console確認
+## AI画像選別機能
 
-## 📄 関連ドキュメント
+GPT-4o-miniのVision APIを使用して、画像を自動判定します。
 
-- [MANUAL_SETUP_CHECKLIST.md](./MANUAL_SETUP_CHECKLIST.md) - 詳細セットアップ手順
-- [ARCHITECTURE_DOCUMENTATION.md](./ARCHITECTURE_DOCUMENTATION.md) - 技術仕様書
-- [FINAL_CODE_DOCUMENTATION.md](./FINAL_CODE_DOCUMENTATION.md) - コード解説
+**保存対象（Valid）:**
+- 実際の場所・空間・建物の写真
+- 内観写真（リビング、キッチン、オフィス、スタジオなど）
+- 外観写真（建物、庭、駐車場など）
 
-## 🔄 バージョン履歴
+**除外対象（Invalid）:**
+- イラスト、漫画、アニメ調の画像
+- アイコン、ロゴ、シンボルマーク
+- 地図、間取り図、フロアマップ
+- 文字が主体のバナー広告
+- 人物のバストアップ、ポートレート
+- UI部品、ボタン、SNSアイコン
 
-- **v1.6** (2024-08-21): 変数衝突問題修正、安定版完成
-- **v1.5** (2024-08-21): Content Script接続問題修正
-- **v1.4** (2024-08-21): Service Worker動的import問題修正
-- **v1.3** (2024-08-21): sendResponse問題修正
-- **v1.2** (2024-08-21): 進捗表示機能追加
-- **v1.1** (2024-08-21): チーム共有機能追加
-- **v1.0** (2024-08-21): 初期リリース
+## セットアップ
 
-## 📊 パフォーマンス
+### 1. Google Cloud Console設定
 
-### 処理時間
-- **ページコンテンツ抽出**: 1-2秒
-- **GPT-4解析**: 5-10秒
-- **Google認証**: 1-2秒
-- **スライド生成**: 5-8秒
-- **スプレッドシート保存**: 1-2秒
-- **合計**: 約15-25秒
+1. [Google Cloud Console](https://console.cloud.google.com/)でプロジェクトを作成
+2. 以下のAPIを有効化:
+   - Google Drive API
+   - Google Slides API
+   - Google Sheets API
+3. OAuth 2.0クライアントIDを作成（Chrome拡張機能用）
+4. ご自身のGoogle Cloudプロジェクトで発行したOAuth Client IDを、`manifest.json`の`oauth2.client_id`（`YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com`の部分）に記載してください。
 
-### API使用量（1回の生成あたり）
-- **OpenAI API**: 約3,000-5,000トークン
-- **Google Slides API**: 15-20リクエスト
-- **Google Sheets API**: 1-2リクエスト
+### 2. OpenAI API設定
 
-## 📧 サポート
+1. [OpenAI](https://platform.openai.com/)でAPIキーを取得
+2. GPT-4o-miniが利用可能であることを確認
 
-問題が発生した場合は、Console ログを確認してエラー内容を特定してください。各段階でのエラーメッセージが詳細に表示されます。
+### 3. 拡張機能のインストール
 
----
+1. Chrome で `chrome://extensions` を開く
+2. 「デベロッパーモード」を有効化
+3. 「パッケージ化されていない拡張機能を読み込む」をクリック
+4. `chrome-extension` フォルダを選択
 
-**🎬 効率的なロケハンのために開発された実用的ツールです！**
+### 4. 初期設定
+
+1. 拡張機能アイコンをクリック
+2. 設定（歯車アイコン）を開く
+3. 以下を設定:
+   - OpenAI APIキー
+   - Google Drive親フォルダID
+   - スプレッドシートID（オプション）
+4. 「Googleアカウントでログイン」で認証
+
+## 使い方
+
+1. ロケ地情報のあるWebページを開く
+2. 拡張機能アイコンをクリック
+3. オプションを確認:
+   - 「関連ページも自動取得」: アクセスや料金ページも収集
+   - 「画像を保存」: ロケ地画像をDriveに保存（AI選別付き）
+4. 「情報を収集」ボタンをクリック
+5. 完了後、各リンクから結果を確認
+
+## 出力
+
+### Google Drive
+```
+親フォルダ/
+└── YYYY-MM-DD_場所名/
+    └── images/
+        ├── 場所名_001_リビング.jpg
+        ├── 場所名_002_キッチン.jpg
+        └── ...
+```
+
+### スプレッドシート
+| スタジオ名 | サイトURL | 広さ | 電車アクセス | 車アクセス | 駐車場情報 | 金額（ムービー） | 金額（スチール） | 金額 | 住所 | 電話番号 | メールアドレス・フォーム | 登録日時 | スライドURL | フォルダURL |
+
+### スライド
+- 場所名・住所
+- アクセス情報（電車・車）
+- 駐車場情報
+- 電話番号・URL
+
+## 画像分類カテゴリ
+
+**住居系**: キッチン、リビング、ベッドルーム、お風呂、トイレ、玄関、廊下、和室、洋室、バルコニー、庭
+
+**オフィス系**: 会議室、エレベーターホール、ロビー、食堂、オフィス、受付、屋上
+
+**スタジオ系**: 白ホリゾント、黒ホリゾント、控室、メイクルーム
+
+**その他**: 外観、駐車場
+
+## 注意事項
+
+- 画像保存は最大40枚まで（AI選別後）
+- クロール対象は同一ドメイン内のみ
+- 画像ダウンロードはCORS制限により失敗する場合があります
+- 「関連ロケ地」セクションの画像は自動除外されます
+
+## トラブルシューティング
+
+### 「APIキーが無効です」
+- OpenAI APIキーが正しいか確認
+- APIキーの利用制限を確認
+
+### 「Google認証に失敗しました」
+- manifest.jsonのclient_idが正しいか確認
+- OAuth同意画面の設定を確認
+
+### 「画像のダウンロードに失敗しました」
+- 画像がCORS制限されている可能性があります
+- 外部ドメインの画像は保存できない場合があります
+
+### デバッグ方法
+1. `chrome://extensions` を開く
+2. 拡張機能の「Service Worker」をクリック
+3. Consoleタブでログを確認
+
+## ライセンス
+
+MIT License

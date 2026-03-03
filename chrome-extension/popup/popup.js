@@ -1,563 +1,404 @@
+/**
+ * Location Scout v2 - Popup Script
+ * ポップアップUIの制御とバックグラウンドスクリプトとの通信
+ */
+
+// DOM要素
+const elements = {
+    // メイン画面
+    mainView: document.getElementById('mainView'),
+    settingsView: document.getElementById('settingsView'),
+    currentUrl: document.getElementById('currentUrl'),
+    enableCrawl: document.getElementById('enableCrawl'),
+    saveImages: document.getElementById('saveImages'),
+    startBtn: document.getElementById('startBtn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+
+    // 進捗表示
+    progressSection: document.getElementById('progressSection'),
+    progressFill: document.getElementById('progressFill'),
+    progressText: document.getElementById('progressText'),
+    progressDetail: document.getElementById('progressDetail'),
+
+    // 結果表示
+    resultSection: document.getElementById('resultSection'),
+    resultContent: document.getElementById('resultContent'),
+    errorList: document.getElementById('errorList'),
+    errorItems: document.getElementById('errorItems'),
+
+    // 設定画面
+    backBtn: document.getElementById('backBtn'),
+    apiKey: document.getElementById('apiKey'),
+    parentFolderId: document.getElementById('parentFolderId'),
+    selectFolderBtn: document.getElementById('selectFolderBtn'),
+    spreadsheetId: document.getElementById('spreadsheetId'),
+    saveToSheets: document.getElementById('saveToSheets'),
+    slideMode: document.getElementById('slideMode'),
+    masterSlideId: document.getElementById('masterSlideId'),
+    masterSlideGroup: document.getElementById('masterSlideGroup'),
+    authStatus: document.getElementById('authStatus'),
+    authBtn: document.getElementById('authBtn'),
+    saveSettingsBtn: document.getElementById('saveSettingsBtn')
+};
+
+// 初期化
 document.addEventListener('DOMContentLoaded', async () => {
-    const elements = {
-        pageTitle: document.getElementById('page-title'),
-        generateBtn: document.getElementById('generate-btn'),
-        settingsBtn: document.getElementById('settings-btn'),
-        progressArea: document.getElementById('progress-area'),
-        progressFill: document.getElementById('progress-fill'),
-        progressText: document.getElementById('progress-text'),
-        resultArea: document.getElementById('result-area'),
-        slideLink: document.getElementById('slide-link'),
-        errorArea: document.getElementById('error-area'),
-        errorText: document.getElementById('error-text'),
-        retryBtn: document.getElementById('retry-btn'),
-        settingsModal: document.getElementById('settings-modal'),
-        apiKeyInput: document.getElementById('api-key'),
-        slideFolderIdInput: document.getElementById('slide-folder-id'),
-        slideModeSelect: document.getElementById('slide-mode'),
-        masterSlideIdInput: document.getElementById('master-slide-id'),
-        masterSlideSection: document.getElementById('master-slide-section'),
-        spreadsheetIdInput: document.getElementById('spreadsheet-id'),
-        saveToSheetsCheckbox: document.getElementById('save-to-sheets'),
-        userNameInput: document.getElementById('user-name'),
-        teamSharingCheckbox: document.getElementById('team-sharing'),
-        teamSettings: document.getElementById('team-settings'),
-        masterDbSettings: document.getElementById('master-db-settings'),
-        sharedFolderIdInput: document.getElementById('shared-folder-id'),
-        masterSpreadsheetIdInput: document.getElementById('master-spreadsheet-id'),
-        saveSettingsBtn: document.getElementById('save-settings'),
-        cancelSettingsBtn: document.getElementById('cancel-settings'),
-        testBtn: document.getElementById('test-button'),
-        helpLink: document.getElementById('help-link'),
-        feedbackLink: document.getElementById('feedback-link')
-    };
-
-    let currentTab = null;
-    let settings = {
-        apiKey: '',
-        slideFolderId: '',
-        slideMode: 'new',
-        masterSlideId: '',
-        spreadsheetId: '',
-        saveToSheets: true,
-        userName: '',
-        teamSharing: false,
-        sharedFolderId: '',
-        masterSpreadsheetId: ''
-    };
-
-    async function init() {
-        try {
-            console.log('Initializing popup...');
-            
-            // Service Worker ステータス確認
-            const swStatus = await chrome.storage.local.get(['serviceWorkerStatus', 'lastStartTime', 'error']);
-            console.log('Service Worker Status:', swStatus);
-            
-            if (swStatus.serviceWorkerStatus === 'error') {
-                console.error('Service Worker Error:', swStatus.error);
-            }
-            console.log('Elements found:', {
-                settingsBtn: !!elements.settingsBtn,
-                settingsModal: !!elements.settingsModal,
-                generateBtn: !!elements.generateBtn,
-                saveSettingsBtn: !!elements.saveSettingsBtn,
-                testBtn: !!elements.testBtn,
-                apiKeyInput: !!elements.apiKeyInput,
-                userNameInput: !!elements.userNameInput,
-                spreadsheetIdInput: !!elements.spreadsheetIdInput
-            });
-            
-            // 要素が見つからない場合の詳細ログ
-            if (!elements.saveSettingsBtn) {
-                console.error('Save settings button not found! Looking for element with id "save-settings"');
-                const btn = document.getElementById('save-settings');
-                console.log('Direct getElementById result:', btn);
-            }
-            
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            currentTab = tab;
-            elements.pageTitle.textContent = tab.title || 'タイトルなし';
-
-            const stored = await chrome.storage.local.get([
-                'slideFolderId', 'slideMode', 'masterSlideId',
-                'spreadsheetId', 'saveToSheets', 'userName', 
-                'teamSharing', 'sharedFolderId', 'masterSpreadsheetId'
-            ]);
-            // APIキーの取得（平文・暗号化両対応）
-            const storedApiKey = await chrome.storage.local.get(['apiKey']);
-            console.log('Stored API key found:', !!storedApiKey.apiKey);
-            
-            if (storedApiKey.apiKey) {
-                // まず平文として扱う
-                if (typeof storedApiKey.apiKey === 'string' && storedApiKey.apiKey.startsWith('sk-')) {
-                    console.log('Plain text API key detected');
-                    settings.apiKey = storedApiKey.apiKey;
-                } else {
-                    // 暗号化されている可能性がある場合
-                    try {
-                        const response = await chrome.runtime.sendMessage({
-                            action: 'decryptApiKey',
-                            encryptedKey: storedApiKey.apiKey
-                        });
-                        if (response.success) {
-                            console.log('Encrypted API key decrypted successfully');
-                            settings.apiKey = response.decryptedKey;
-                        } else {
-                            console.log('Decryption failed, trying as plain text');
-                            settings.apiKey = storedApiKey.apiKey;
-                        }
-                    } catch (error) {
-                        console.log('Legacy API key format detected');
-                        settings.apiKey = storedApiKey.apiKey;
-                    }
-                }
-            }
-            if (stored.slideFolderId) settings.slideFolderId = stored.slideFolderId;
-            if (stored.slideMode) settings.slideMode = stored.slideMode;
-            if (stored.masterSlideId) settings.masterSlideId = stored.masterSlideId;
-            if (stored.spreadsheetId) settings.spreadsheetId = stored.spreadsheetId;
-            if (stored.saveToSheets !== undefined) settings.saveToSheets = stored.saveToSheets;
-            if (stored.userName) settings.userName = stored.userName;
-            if (stored.teamSharing !== undefined) settings.teamSharing = stored.teamSharing;
-            if (stored.sharedFolderId) settings.sharedFolderId = stored.sharedFolderId;
-            if (stored.masterSpreadsheetId) settings.masterSpreadsheetId = stored.masterSpreadsheetId;
-
-            elements.apiKeyInput.value = settings.apiKey ? '••••••••' : '';
-            elements.slideFolderIdInput.value = settings.slideFolderId || '';
-            elements.slideModeSelect.value = settings.slideMode || 'new';
-            elements.masterSlideIdInput.value = settings.masterSlideId || '';
-            elements.spreadsheetIdInput.value = settings.spreadsheetId || '';
-            elements.saveToSheetsCheckbox.checked = settings.saveToSheets;
-            elements.userNameInput.value = settings.userName || '';
-            elements.teamSharingCheckbox.checked = settings.teamSharing;
-            elements.sharedFolderIdInput.value = settings.sharedFolderId || '';
-            elements.masterSpreadsheetIdInput.value = settings.masterSpreadsheetId || '';
-            
-            toggleTeamSharingSection();
-            toggleMasterSlideSection();
-
-            console.log('Final API key status:', !!settings.apiKey);
-            console.log('API key starts with sk-:', settings.apiKey?.startsWith('sk-'));
-            
-            if (!settings.apiKey || settings.apiKey.length === 0) {
-                console.log('No API key found - disabling generate button');
-                elements.generateBtn.disabled = true;
-                elements.generateBtn.textContent = '⚠️ API Key未設定';
-            } else {
-                console.log('API key found - enabling generate button');
-                elements.generateBtn.disabled = false;
-                elements.generateBtn.innerHTML = '<span class="btn-icon">📊</span>スライドを生成';
-            }
-        } catch (error) {
-            console.error('初期化エラー:', error);
-        }
-    }
-
-    function showProgress(text = '処理中...') {
-        hideAllAreas();
-        elements.progressArea.classList.remove('hidden');
-        elements.progressText.textContent = text;
-        elements.progressFill.style.width = '0%';
-    }
-
-    function updateProgress(percent, text) {
-        elements.progressFill.style.width = `${percent}%`;
-        if (text) elements.progressText.textContent = text;
-    }
-
-    function updateProcessingStage(stage) {
-        const stages = {
-            'extracting': { text: '1. ページコンテンツ抽出', percent: 20 },
-            'analyzing': { text: '2. GPT-4解析', percent: 40 },
-            'authenticating': { text: '3. Google認証', percent: 60 },
-            'creating_slide': { text: '4. スライド生成', percent: 80 },
-            'saving_spreadsheet': { text: '5. スプレッドシート保存', percent: 100 }
-        };
-        
-        if (stages[stage]) {
-            updateProgress(stages[stage].percent, stages[stage].text);
-        }
-    }
-
-    function showResult(slideUrl) {
-        hideAllAreas();
-        elements.resultArea.classList.remove('hidden');
-        elements.slideLink.href = slideUrl;
-    }
-
-    function showError(message) {
-        hideAllAreas();
-        elements.errorArea.classList.remove('hidden');
-        elements.errorText.textContent = message;
-    }
-
-    function hideAllAreas() {
-        elements.progressArea.classList.add('hidden');
-        elements.resultArea.classList.add('hidden');
-        elements.errorArea.classList.add('hidden');
-    }
-
-    function showSettings() {
-        console.log('showSettings called');
-        console.log('settingsModal element:', elements.settingsModal);
-        if (elements.settingsModal) {
-            elements.settingsModal.classList.remove('hidden');
-            console.log('Modal classes after show:', elements.settingsModal.classList.toString());
-        } else {
-            console.error('Settings modal element not found!');
-        }
-    }
-
-    function hideSettings() {
-        elements.settingsModal.classList.add('hidden');
-    }
-
-    // 新しいシンプルな保存関数
-    async function saveSettingsNew() {
-        console.log('🔥 NEW SAVE FUNCTION CALLED');
-        
-        try {
-            // 直接DOMから値を取得
-            const apiKey = document.getElementById('api-key')?.value || '';
-            const userName = document.getElementById('user-name')?.value || '';
-            const spreadsheetId = document.getElementById('spreadsheet-id')?.value || '';
-            
-            console.log('Values from DOM:', { apiKey: apiKey.length > 0, userName, spreadsheetId });
-            
-            // 全設定の保存処理
-            if (apiKey && apiKey.length > 0) {
-                // DOM要素から全設定を取得
-                const slideFolderId = document.getElementById('slide-folder-id')?.value || '';
-                const slideMode = document.getElementById('slide-mode')?.value || 'new';
-                const masterSlideId = document.getElementById('master-slide-id')?.value || '';
-                const teamSharing = document.getElementById('team-sharing')?.checked || false;
-                const sharedFolderId = document.getElementById('shared-folder-id')?.value || '';
-                const masterSpreadsheetId = document.getElementById('master-spreadsheet-id')?.value || '';
-                const saveToSheets = document.getElementById('save-to-sheets')?.checked || true;
-                
-                await chrome.storage.local.set({ 
-                    apiKey: apiKey,
-                    userName: userName,
-                    spreadsheetId: spreadsheetId,
-                    slideFolderId: slideFolderId,
-                    slideMode: slideMode,
-                    masterSlideId: masterSlideId,
-                    teamSharing: teamSharing,
-                    sharedFolderId: sharedFolderId,
-                    masterSpreadsheetId: masterSpreadsheetId,
-                    saveToSheets: saveToSheets
-                });
-                
-                // settingsオブジェクトも更新
-                settings.apiKey = apiKey;
-                settings.userName = userName;
-                settings.spreadsheetId = spreadsheetId;
-                settings.slideFolderId = slideFolderId;
-                settings.slideMode = slideMode;
-                settings.masterSlideId = masterSlideId;
-                settings.teamSharing = teamSharing;
-                settings.sharedFolderId = sharedFolderId;
-                settings.masterSpreadsheetId = masterSpreadsheetId;
-                settings.saveToSheets = saveToSheets;
-                
-                // 生成ボタンを有効化
-                elements.generateBtn.disabled = false;
-                elements.generateBtn.innerHTML = '<span class="btn-icon">📊</span>スライドを生成';
-                
-                console.log('✅ Settings saved successfully');
-                alert('設定が保存されました！');
-                hideSettings();
-            } else {
-                alert('APIキーを入力してください');
-            }
-        } catch (error) {
-            console.error('❌ Save error:', error);
-            alert('保存エラー: ' + error.message);
-        }
-    }
-
-    async function saveSettings() {
-        console.log('=== saveSettings function called ===');
-        
-        // 入力値の確認
-        const apiKeyValue = elements.apiKeyInput?.value || '';
-        const userNameValue = elements.userNameInput?.value || '';
-        const spreadsheetIdValue = elements.spreadsheetIdInput?.value || '';
-        
-        console.log('Input values:', {
-            apiKeyLength: apiKeyValue.length,
-            userName: userNameValue,
-            spreadsheetId: spreadsheetIdValue
-        });
-        
-        try {
-            console.log('API key value length:', apiKeyValue ? apiKeyValue.length : 0);
-            
-            if (apiKeyValue && !apiKeyValue.includes('•')) {
-                settings.apiKey = apiKeyValue;
-                console.log('Encrypting API key...');
-                // APIキーの暗号化保存
-                try {
-                    const response = await chrome.runtime.sendMessage({
-                        action: 'encryptApiKey',
-                        apiKey: apiKeyValue
-                    });
-                    console.log('Encryption response:', response);
-                    if (response.success) {
-                        await chrome.storage.local.set({ apiKey: response.encryptedKey });
-                        console.log('API key saved encrypted');
-                    } else {
-                        // フォールバック: 平文で保存
-                        await chrome.storage.local.set({ apiKey: apiKeyValue });
-                        console.log('API key saved as fallback');
-                    }
-                } catch (error) {
-                    console.error('API key encryption failed:', error);
-                    await chrome.storage.local.set({ apiKey: apiKeyValue });
-                    console.log('API key saved after error');
-                }
-            }
-        
-            settings.slideFolderId = elements.slideFolderIdInput.value;
-        settings.slideMode = elements.slideModeSelect.value;
-        settings.masterSlideId = elements.masterSlideIdInput.value;
-            settings.spreadsheetId = elements.spreadsheetIdInput.value;
-            settings.saveToSheets = elements.saveToSheetsCheckbox.checked;
-            settings.userName = elements.userNameInput.value;
-            settings.teamSharing = elements.teamSharingCheckbox.checked;
-            settings.sharedFolderId = elements.sharedFolderIdInput.value;
-            settings.masterSpreadsheetId = elements.masterSpreadsheetIdInput.value;
-
-            console.log('Saving other settings...');
-            await chrome.storage.local.set({
-                slideFolderId: settings.slideFolderId,
-                slideMode: settings.slideMode,
-                masterSlideId: settings.masterSlideId,
-                spreadsheetId: settings.spreadsheetId,
-                saveToSheets: settings.saveToSheets,
-                userName: settings.userName,
-                teamSharing: settings.teamSharing,
-                sharedFolderId: settings.sharedFolderId,
-                masterSpreadsheetId: settings.masterSpreadsheetId
-            });
-            console.log('Settings saved successfully');
-
-            if (settings.apiKey) {
-                elements.generateBtn.disabled = false;
-                elements.generateBtn.innerHTML = '<span class="btn-icon">📊</span>スライドを生成';
-            }
-
-            hideSettings();
-            console.log('Settings modal hidden');
-        } catch (error) {
-            console.error('Save settings error:', error);
-            alert('設定の保存に失敗しました: ' + error.message);
-        }
-    }
-
-    async function generateSlide() {
-        if (!settings.apiKey) {
-            showError('APIキーが設定されていません。設定画面から入力してください。');
-            return;
-        }
-
-        try {
-            showProgress('処理開始中...');
-            updateProgress(10, '処理開始中...');
-
-            console.log('Sending message to background script...');
-            
-            // バックグラウンドからの進捗をストレージ経由で監視
-            const progressInterval = setInterval(async () => {
-                try {
-                    const result = await chrome.storage.local.get(['currentProcessingStage', 'lastUpdate']);
-                    if (result.currentProcessingStage && result.lastUpdate && 
-                        Date.now() - result.lastUpdate < 10000) { // 10秒以内の更新のみ有効
-                        updateProcessingStage(result.currentProcessingStage);
-                    }
-                } catch (error) {
-                    console.log('進捗監視エラー:', error);
-                }
-            }, 500); // 500msごとにチェック
-            
-            let response;
-            try {
-                response = await Promise.race([
-                    chrome.runtime.sendMessage({
-                        action: 'generateSlide',
-                        tabId: currentTab.id,
-                        url: currentTab.url,
-                        title: currentTab.title,
-                        settings: settings
-                    }),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('処理がタイムアウトしました（30秒）')), 30000)
-                    )
-                ]);
-                
-                console.log('Response received:', response);
-            } finally {
-                // インターバルをクリア
-                clearInterval(progressInterval);
-            }
-            
-            if (response.success) {
-                if (response.needsSetup) {
-                    // セットアップが必要な場合
-                    updateProgress(80, 'Google OAuth設定が必要です');
-                    setTimeout(() => {
-                        showError('Google OAuth設定が必要です。\n\n1. Google Cloud Consoleでプロジェクト作成\n2. OAuth 2.0クライアントID取得\n3. manifest.jsonのclient_id更新\n\nGPT解析は完了しました（コンソール確認）');
-                        
-                        if (response.locationData) {
-                            console.log('🤖 取得された場所情報:', response.locationData);
-                        }
-                    }, 500);
-                } else {
-                    updateProgress(100, '完了！');
-                    setTimeout(() => {
-                        showResult(response.slideUrl);
-                        
-                        // 保存結果の表示
-                        let statusText = '';
-                        if (response.teamSharing && response.masterSaved) {
-                            statusText = 'チーム共有DBに保存されました';
-                        } else if (response.teamSharing && !response.masterSaved) {
-                            statusText = 'チーム共有DB: 重複のためスキップ';
-                        }
-                        if (response.spreadsheetSaved) {
-                            statusText += statusText ? ' / 個人DBにも保存' : '個人DBに保存されました';
-                        }
-                        if (statusText) {
-                            elements.progressText.textContent = statusText;
-                        }
-                    }, 500);
-                }
-            } else {
-                throw new Error(response.error || '不明なエラーが発生しました');
-            }
-        } catch (error) {
-            console.error('スライド生成エラー:', error);
-            clearInterval(progressInterval); // エラー時にもインターバルをクリア
-            showError(error.message);
-        }
-    }
-
-    // イベントリスナーの追加
-    console.log('Adding event listeners...');
-    
-    elements.generateBtn.addEventListener('click', generateSlide);
-    elements.settingsBtn.addEventListener('click', (e) => {
-        console.log('Settings button clicked');
-        e.preventDefault();
-        showSettings();
-    });
-    elements.retryBtn.addEventListener('click', generateSlide);
-    
-    // 保存ボタンのイベントリスナー追加を確認
-    if (elements.saveSettingsBtn) {
-        console.log('Adding event listener to save settings button');
-        elements.saveSettingsBtn.addEventListener('click', (e) => {
-            console.log('Save settings button clicked - calling NEW function');
-            e.preventDefault();
-            e.stopPropagation();
-            saveSettingsNew();  // 新しい関数を呼び出し
-        });
-    } else {
-        console.error('Cannot add event listener - save settings button not found');
-    }
-    
-    if (elements.cancelSettingsBtn) {
-        elements.cancelSettingsBtn.addEventListener('click', hideSettings);
-    } else {
-        console.error('Cancel settings button not found');
-    }
-    
-    // テストボタンの追加
-    if (elements.testBtn) {
-        console.log('Adding event listener to test button');
-        elements.testBtn.addEventListener('click', (e) => {
-            console.log('🧪 TEST BUTTON CLICKED - This proves button clicks work!');
-            alert('テストボタンが動作しました！\nConsoleログを確認してください。');
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    } else {
-        console.error('Test button not found');
-    }
-    
-    elements.helpLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        chrome.tabs.create({ url: 'https://github.com/yourusername/location-scout-extension/wiki' });
-    });
-    
-    elements.feedbackLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        chrome.tabs.create({ url: 'https://github.com/yourusername/location-scout-extension/issues' });
-    });
-
-    if (elements.settingsModal) {
-        elements.settingsModal.addEventListener('click', (e) => {
-            // モーダルの背景をクリックした場合のみ閉じる（ボタンクリックは除外）
-            if (e.target === elements.settingsModal) {
-                console.log('Modal background clicked - hiding settings');
-                hideSettings();
-            }
-        });
-    }
-
-    function toggleTeamSharingSection() {
-        if (elements.teamSharingCheckbox.checked) {
-            elements.teamSettings.style.display = 'block';
-            elements.masterDbSettings.style.display = 'block';
-        } else {
-            elements.teamSettings.style.display = 'none';
-            elements.masterDbSettings.style.display = 'none';
-        }
-    }
-
-    elements.teamSharingCheckbox.addEventListener('change', toggleTeamSharingSection);
-    elements.slideModeSelect.addEventListener('change', toggleMasterSlideSection);
-
-    function toggleMasterSlideSection() {
-        const slideMode = elements.slideModeSelect.value;
-        if (slideMode === 'append' || slideMode === 'overwrite') {
-            elements.masterSlideSection.style.display = 'block';
-        } else {
-            elements.masterSlideSection.style.display = 'none';
-        }
-    }
-
-    // DOM要素の再取得を試行（遅延ロードの場合）
-    setTimeout(() => {
-        if (!elements.saveSettingsBtn) {
-            console.log('Retrying to find save settings button...');
-            elements.saveSettingsBtn = document.getElementById('save-settings');
-            if (elements.saveSettingsBtn) {
-                console.log('Save button found on retry - adding event listener');
-                elements.saveSettingsBtn.addEventListener('click', (e) => {
-                    console.log('Save settings button clicked (retry listener)');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    saveSettings();
-                });
-            }
-        }
-    }, 100);
-
-    await init();
-    
-    // ポップアップ表示時に毎回APIキーをチェック
-    document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible') {
-            console.log('Popup became visible - rechecking API key');
-            const storedApiKey = await chrome.storage.local.get(['apiKey']);
-            if (storedApiKey.apiKey && storedApiKey.apiKey.startsWith('sk-')) {
-                settings.apiKey = storedApiKey.apiKey;
-                elements.generateBtn.disabled = false;
-                elements.generateBtn.innerHTML = '<span class="btn-icon">📊</span>スライドを生成';
-                console.log('API key re-loaded and generate button enabled');
-            }
-        }
-    });
+    await loadSettings();
+    await updateCurrentUrl();
+    setupEventListeners();
+    startProgressPolling();
 });
+
+// 設定読み込み
+async function loadSettings() {
+    const settings = await chrome.storage.local.get([
+        'apiKey',
+        'parentFolderId',
+        'spreadsheetId',
+        'saveToSheets',
+        'slideMode',
+        'masterSlideId',
+        'enableCrawl',
+        'saveImages',
+        'isAuthenticated'
+    ]);
+
+    if (settings.apiKey) elements.apiKey.value = settings.apiKey;
+    if (settings.parentFolderId) elements.parentFolderId.value = settings.parentFolderId;
+    if (settings.spreadsheetId) elements.spreadsheetId.value = settings.spreadsheetId;
+    elements.saveToSheets.checked = settings.saveToSheets !== false;
+    if (settings.slideMode) elements.slideMode.value = settings.slideMode;
+    if (settings.masterSlideId) elements.masterSlideId.value = settings.masterSlideId;
+    elements.enableCrawl.checked = settings.enableCrawl !== false;
+    elements.saveImages.checked = settings.saveImages !== false;
+
+    updateSlideModeVisibility();
+    updateAuthStatus(settings.isAuthenticated);
+}
+
+// 現在のURL取得
+async function updateCurrentUrl() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.url) {
+            elements.currentUrl.textContent = tab.url;
+        } else {
+            elements.currentUrl.textContent = 'URLを取得できません';
+        }
+    } catch (error) {
+        elements.currentUrl.textContent = 'エラー: ' + error.message;
+    }
+}
+
+// イベントリスナー設定
+function setupEventListeners() {
+    // 設定画面切り替え
+    elements.settingsBtn.addEventListener('click', () => {
+        elements.mainView.classList.add('hidden');
+        elements.settingsView.classList.remove('hidden');
+    });
+
+    elements.backBtn.addEventListener('click', () => {
+        elements.settingsView.classList.add('hidden');
+        elements.mainView.classList.remove('hidden');
+    });
+
+    // スライドモード切り替え
+    elements.slideMode.addEventListener('change', updateSlideModeVisibility);
+
+    // 認証ボタン
+    elements.authBtn.addEventListener('click', handleAuth);
+
+    // 設定保存
+    elements.saveSettingsBtn.addEventListener('click', saveSettings);
+
+    // 情報収集開始
+    elements.startBtn.addEventListener('click', startCollection);
+
+    // フォルダ選択
+    elements.selectFolderBtn.addEventListener('click', selectFolder);
+}
+
+// スライドモード表示切り替え
+function updateSlideModeVisibility() {
+    if (elements.slideMode.value === 'append') {
+        elements.masterSlideGroup.classList.remove('hidden');
+    } else {
+        elements.masterSlideGroup.classList.add('hidden');
+    }
+}
+
+// 認証ステータス更新
+function updateAuthStatus(isAuthenticated) {
+    if (isAuthenticated) {
+        elements.authStatus.textContent = '認証済み';
+        elements.authStatus.classList.add('authenticated');
+        elements.authBtn.textContent = '再認証';
+    } else {
+        elements.authStatus.textContent = '未認証';
+        elements.authStatus.classList.remove('authenticated');
+        elements.authBtn.textContent = 'Googleアカウントでログイン';
+    }
+}
+
+// Google認証
+async function handleAuth() {
+    try {
+        elements.authBtn.disabled = true;
+        elements.authBtn.textContent = '認証中...';
+
+        const response = await chrome.runtime.sendMessage({ action: 'authenticate' });
+
+        if (response.success) {
+            updateAuthStatus(true);
+            await chrome.storage.local.set({ isAuthenticated: true });
+        } else {
+            throw new Error(response.error || '認証に失敗しました');
+        }
+    } catch (error) {
+        alert('認証エラー: ' + error.message);
+    } finally {
+        elements.authBtn.disabled = false;
+        updateAuthStatus(await chrome.storage.local.get('isAuthenticated').then(r => r.isAuthenticated));
+    }
+}
+
+// 設定保存
+async function saveSettings() {
+    const settings = {
+        apiKey: elements.apiKey.value,
+        parentFolderId: elements.parentFolderId.value,
+        spreadsheetId: elements.spreadsheetId.value,
+        saveToSheets: elements.saveToSheets.checked,
+        slideMode: elements.slideMode.value,
+        masterSlideId: elements.masterSlideId.value
+    };
+
+    await chrome.storage.local.set(settings);
+
+    // 保存完了通知
+    elements.saveSettingsBtn.textContent = '保存しました!';
+    setTimeout(() => {
+        elements.saveSettingsBtn.textContent = '設定を保存';
+    }, 1500);
+}
+
+// フォルダ選択
+async function selectFolder() {
+    try {
+        elements.selectFolderBtn.disabled = true;
+        elements.selectFolderBtn.textContent = '読み込み中...';
+
+        const response = await chrome.runtime.sendMessage({ action: 'selectFolder' });
+
+        if (response.success && response.folders) {
+            // フォルダ選択ダイアログを表示（簡易版）
+            const folderList = response.folders.map(f => `${f.name} (${f.id})`).join('\n');
+            const selected = prompt(`フォルダを選択してください:\n\n${folderList}\n\nフォルダIDを入力:`);
+
+            if (selected) {
+                elements.parentFolderId.value = selected;
+            }
+        } else {
+            throw new Error(response.error || 'フォルダの取得に失敗しました');
+        }
+    } catch (error) {
+        alert('エラー: ' + error.message);
+    } finally {
+        elements.selectFolderBtn.disabled = false;
+        elements.selectFolderBtn.textContent = 'フォルダを選択';
+    }
+}
+
+// 情報収集開始
+async function startCollection() {
+    try {
+        // UI更新
+        elements.startBtn.disabled = true;
+        elements.startBtn.innerHTML = '<div class="spinner"></div> 処理中...';
+        elements.progressSection.classList.remove('hidden');
+        elements.resultSection.classList.add('hidden');
+        elements.errorList.classList.add('hidden');
+
+        // 設定取得
+        const settings = await chrome.storage.local.get([
+            'apiKey',
+            'parentFolderId',
+            'spreadsheetId',
+            'saveToSheets',
+            'slideMode',
+            'masterSlideId'
+        ]);
+
+        console.log('Settings loaded:', {
+            hasApiKey: !!settings.apiKey,
+            parentFolderId: settings.parentFolderId,
+            spreadsheetId: settings.spreadsheetId
+        });
+
+        // バリデーション
+        if (!settings.apiKey) {
+            throw new Error('APIキーが設定されていません。設定画面でOpenAI APIキーを入力してください。');
+        }
+
+        if (!settings.parentFolderId) {
+            throw new Error('保存先フォルダが設定されていません。設定画面でGoogle DriveのフォルダIDを入力してください。');
+        }
+
+        // 処理開始
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (!tab || !tab.id) {
+            throw new Error('アクティブなタブが見つかりません。');
+        }
+
+        console.log('Starting collection for:', tab.url);
+
+        let response;
+        try {
+            response = await chrome.runtime.sendMessage({
+                action: 'startCollection',
+                url: tab.url,
+                tabId: tab.id,
+                settings: {
+                    ...settings,
+                    enableCrawl: elements.enableCrawl.checked,
+                    saveImages: elements.saveImages.checked,
+                    maxImages: 40  // 上位40枚まで保存
+                }
+            });
+        } catch (sendError) {
+            console.error('sendMessage error:', sendError);
+            throw new Error(`バックグラウンド処理との通信エラー: ${sendError.message}`);
+        }
+
+        console.log('Response received:', response);
+
+        if (!response) {
+            throw new Error('バックグラウンドからの応答がありません。拡張機能を再読み込みしてください。');
+        }
+
+        if (response.success) {
+            showResult(response);
+        } else {
+            // 詳細なエラー情報を構築
+            let errorMsg = response.error || '不明なエラー';
+            if (response.errors && response.errors.length > 0) {
+                errorMsg += '\n\n詳細:\n' + response.errors.join('\n');
+            }
+            throw new Error(errorMsg);
+        }
+
+    } catch (error) {
+        console.error('Collection error:', error);
+        showError(error.message);
+    } finally {
+        elements.startBtn.disabled = false;
+        elements.startBtn.innerHTML = `
+            <span class="btn-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </span>
+            情報を収集
+        `;
+    }
+}
+
+// 進捗ポーリング
+function startProgressPolling() {
+    setInterval(async () => {
+        const progress = await chrome.storage.local.get([
+            'currentProcessingStage',
+            'progressPercent',
+            'progressDetail',
+            'lastUpdate'
+        ]);
+
+        if (progress.currentProcessingStage && progress.lastUpdate) {
+            // 10秒以上更新がなければ古いデータとみなす
+            if (Date.now() - progress.lastUpdate < 10000) {
+                updateProgress(progress);
+            }
+        }
+    }, 500);
+}
+
+// 進捗更新
+function updateProgress(progress) {
+    const stageMessages = {
+        'starting': { text: '処理を開始しています...', percent: 5 },
+        'extracting': { text: 'ページ情報を抽出中...', percent: 10 },
+        'crawling': { text: '関連ページをクロール中...', percent: 20 },
+        'downloading_images': { text: '画像をダウンロード中...', percent: 40 },
+        'analyzing': { text: 'AIで情報を解析中...', percent: 60 },
+        'creating_folder': { text: 'フォルダを作成中...', percent: 70 },
+        'saving_images': { text: '画像を保存中...', percent: 75 },
+        'saving_document': { text: 'ドキュメントを保存中...', percent: 80 },
+        'creating_slide': { text: 'スライドを作成中...', percent: 85 },
+        'saving_spreadsheet': { text: 'スプレッドシートに保存中...', percent: 95 },
+        'completed': { text: '完了しました!', percent: 100 },
+        'error': { text: 'エラーが発生しました', percent: 0 }
+    };
+
+    const stage = stageMessages[progress.currentProcessingStage] || { text: '処理中...', percent: 0 };
+
+    elements.progressFill.style.width = (progress.progressPercent || stage.percent) + '%';
+    elements.progressText.textContent = stage.text;
+    elements.progressDetail.textContent = progress.progressDetail || '';
+}
+
+// 結果表示
+function showResult(response) {
+    elements.progressSection.classList.add('hidden');
+    elements.resultSection.classList.remove('hidden');
+
+    let html = '<div class="result-links">';
+
+    if (response.folderUrl) {
+        html += `<p><a href="${response.folderUrl}" target="_blank">保存フォルダを開く</a></p>`;
+    }
+    if (response.slideUrl) {
+        html += `<p><a href="${response.slideUrl}" target="_blank">スライドを開く</a></p>`;
+    }
+    if (response.spreadsheetUrl) {
+        html += `<p><a href="${response.spreadsheetUrl}" target="_blank">スプレッドシートを開く</a></p>`;
+    }
+
+    html += '</div>';
+
+    if (response.summary) {
+        html += `<p class="summary">${response.summary}</p>`;
+    }
+
+    elements.resultContent.innerHTML = html;
+
+    // エラー表示
+    if (response.errors && response.errors.length > 0) {
+        elements.errorList.classList.remove('hidden');
+        elements.errorItems.innerHTML = response.errors.map(e => `<li>${e}</li>`).join('');
+    }
+}
+
+// エラー表示
+function showError(message) {
+    elements.progressSection.classList.add('hidden');
+    elements.resultSection.classList.remove('hidden');
+    elements.resultSection.style.background = '#ffebee';
+    elements.resultSection.querySelector('h3').textContent = 'エラー';
+    elements.resultSection.querySelector('h3').style.color = '#c62828';
+
+    // 改行を<br>に変換して詳細表示
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    elements.resultContent.innerHTML = `
+        <div style="color: #c62828; font-size: 13px; line-height: 1.6;">
+            ${formattedMessage}
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffcdd2; font-size: 11px; color: #666;">
+            <p>デバッグ情報を確認するには:</p>
+            <p>1. chrome://extensions を開く</p>
+            <p>2. この拡張機能の「Service Worker」をクリック</p>
+            <p>3. Consoleタブでエラー詳細を確認</p>
+        </div>
+    `;
+}

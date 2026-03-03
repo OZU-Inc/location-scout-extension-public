@@ -1,12 +1,49 @@
-export async function saveToSpreadsheet(locationData, slideUrl, authToken, spreadsheetId) {
+/**
+ * Location Scout v2 - スプレッドシート管理モジュール
+ * 新しい項目構成に対応
+ */
+
+const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4';
+
+// スプレッドシートのヘッダー定義
+const SHEET_HEADERS = [
+    'スタジオ名',
+    'サイトURL',
+    '広さ',
+    '電車アクセス',
+    '車アクセス',
+    '駐車場情報',
+    '金額（ムービー）',
+    '金額（スチール）',
+    '金額',
+    '住所',
+    '電話番号',
+    'メールアドレス・フォーム',
+    '登録日時',
+    'スライドURL',
+    'フォルダURL'
+];
+
+/**
+ * スプレッドシートにデータを保存
+ * @param {Object} locationData - 場所情報
+ * @param {Object} urls - 各種URL情報
+ * @param {string} spreadsheetId - スプレッドシートID
+ * @param {string} authToken - 認証トークン
+ * @returns {Promise<Object>}
+ */
+export async function saveToSpreadsheet(locationData, urls, spreadsheetId, authToken) {
     try {
-        // 2行分のデータを作成（情報行とソース行）
-        const dataRows = formatDataForSheetWithSource(locationData, slideUrl);
-        
-        const range = 'ロケハンDB!A:K';
-        
+        // シートが存在するか確認、なければ作成
+        await ensureSheetExists(spreadsheetId, authToken);
+
+        // データ行を作成
+        const dataRow = formatDataRow(locationData, urls);
+
+        // データを追加
+        const range = 'ロケハンDB!A:O';
         const response = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+            `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
             {
                 method: 'POST',
                 headers: {
@@ -14,387 +51,269 @@ export async function saveToSpreadsheet(locationData, slideUrl, authToken, sprea
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    values: dataRows  // 2行分のデータ
+                    values: [dataRow]
                 })
             }
         );
-        
+
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(`スプレッドシート保存失敗: ${JSON.stringify(error)}`);
+            throw new Error(`スプレッドシート保存失敗: ${error.error?.message || response.statusText}`);
         }
-        
+
         const result = await response.json();
         console.log('スプレッドシートに保存完了:', result);
-        return result;
-        
+
+        return {
+            success: true,
+            spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+        };
+
     } catch (error) {
         console.error('スプレッドシート保存エラー:', error);
         throw error;
     }
 }
 
-// 2行構成でデータを作成（情報行 + ソース行）
-function formatDataForSheetWithSource(locationData, slideUrl, userName = '') {
-    const now = new Date();
-    const timestamp = now.toLocaleString('ja-JP', {
+/**
+ * データ行をフォーマット
+ * @param {Object} data - 場所情報
+ * @param {Object} urls - URL情報
+ * @returns {Array} データ行
+ */
+function formatDataRow(data, urls) {
+    const timestamp = new Date().toLocaleString('ja-JP', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        minute: '2-digit'
     });
-    
-    // 1行目: 抽出した情報
-    const dataRow = [
-        timestamp,                                    // A列: 登録日時
-        locationData.locationName || '記載無し',     // B列: 場所名
-        locationData.address || '記載無し',          // C列: 住所
-        locationData.trainAccess || '記載無し',      // D列: 電車アクセス
-        locationData.carAccess || '記載無し',        // E列: 車アクセス
-        locationData.parkingInfo || '記載無し',      // F列: 駐車場
-        locationData.phoneNumber || '記載無し',      // G列: 電話番号
-        slideUrl || '記載無し',                      // H列: スライドURL
-        '',                                           // I列: 空（ソース情報用）
-        '',                                           // J列: 空（ソース詳細用）
-        ''                                            // K列: 空（抽出元用）
+
+    // 連絡先情報を結合
+    const contact = [data.email, data.contactForm].filter(Boolean).join('\n') || '記載無し';
+
+    return [
+        data.locationName || '記載無し',                    // スタジオ名
+        data.sourceUrl || data.sourceInfo?.pageUrl || '',   // サイトURL
+        data.size || '記載無し',                            // 広さ
+        data.trainAccess || '記載無し',                     // 電車アクセス
+        data.carAccess || '記載無し',                       // 車アクセス
+        data.parkingInfo || '記載無し',                     // 駐車場情報
+        data.priceMovie || '記載無し',                      // 金額（ムービー）
+        data.priceStill || '記載無し',                      // 金額（スチール）
+        data.priceGeneral || '記載無し',                    // 金額
+        data.address || '記載無し',                         // 住所
+        data.phoneNumber || '記載無し',                     // 電話番号
+        contact,                                            // メールアドレス・フォーム
+        timestamp,                                          // 登録日時
+        urls.slideUrl || '',                                // スライドURL
+        urls.folderUrl || ''                                // フォルダURL
     ];
-    
-    // 2行目: ソース情報（薄い背景色で表示）
-    const sourceRow = [
-        '└ソース',                                   // A列: インデント付きラベル
-        locationData.sourceInfo?.pageTitle || locationData.sourceUrl || '不明',  // B列: ページタイトル
-        `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // C列: クリック可能なリンク
-        locationData.sourceInfo?.pageDescription || '',        // D列: ページ概要
-        locationData.sourceInfo?.extractedFrom || '全体',      // E列: 抽出元セクション
-        locationData.sourceInfo?.dataQuality || '不明',        // F列: データ品質
-        (locationData.sourceInfo?.extractedFields || []).join(', ') || '',  // G列: 抽出フィールド
-        locationData.sourceInfo?.pageUrl || locationData.sourceUrl || '',    // H列: ページURL
-        '',                                                     // I列: 空
-        '',                                                     // J列: 空
-        ''                                                      // K列: 空
-    ];
-    
-    return [dataRow, sourceRow];
 }
 
-// 旧形式（互換性のため残す）
-function formatDataForSheet(locationData, slideUrl, userName = '') {
-    const dataRows = formatDataForSheetWithSource(locationData, slideUrl, userName);
-    return dataRows[0]; // 1行目のみ返す
-}
-
-export async function saveToMasterSpreadsheet(locationData, slideUrl, authToken, masterSpreadsheetId, userName) {
+/**
+ * シートが存在することを確認し、なければ作成
+ */
+async function ensureSheetExists(spreadsheetId, authToken) {
     try {
-        // 重複チェック
-        const isDuplicate = await checkDuplicateEntry(masterSpreadsheetId, locationData.sourceUrl, authToken);
-        if (isDuplicate) {
-            console.log('Duplicate entry detected, skipping master DB save');
-            return { success: true, duplicate: true };
-        }
-        
-        // 2行分のデータを作成
-        const masterDataRows = formatMasterDataForSheetWithSource(locationData, slideUrl, userName);
-        
-        const range = 'ロケハンDB!A:L';
-        
+        // スプレッドシート情報を取得
         const response = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${masterSpreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
+            `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`,
             {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    values: masterDataRows  // 2行分のデータ
-                })
+                headers: { 'Authorization': `Bearer ${authToken}` }
             }
         );
-        
+
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(`マスタースプレッドシート保存失敗: ${JSON.stringify(error)}`);
+            throw new Error('スプレッドシート情報取得失敗');
         }
-        
-        const result = await response.json();
-        console.log('マスタースプレッドシートに保存完了:', result);
-        return { success: true, duplicate: false };
-        
-    } catch (error) {
-        console.error('マスタースプレッドシート保存エラー:', error);
-        throw error;
-    }
-}
 
-// マスター用2行構成データ作成
-function formatMasterDataForSheetWithSource(locationData, slideUrl, userName) {
-    const now = new Date();
-    const timestamp = now.toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-    
-    // 1行目: 抽出した情報
-    const dataRow = [
-        userName || '不明',                          // A列: 登録者
-        timestamp,                                    // B列: 登録日時
-        locationData.locationName || '記載無し',     // C列: 場所名
-        locationData.address || '記載無し',          // D列: 住所
-        locationData.trainAccess || '記載無し',      // E列: 電車アクセス
-        locationData.carAccess || '記載無し',        // F列: 車アクセス
-        locationData.parkingInfo || '記載無し',      // G列: 駐車場
-        locationData.phoneNumber || '記載無し',      // H列: 電話番号
-        slideUrl || '記載無し',                      // I列: スライドURL
-        '',                                           // J列: 空
-        '',                                           // K列: 空
-        ''                                            // L列: 空
-    ];
-    
-    // 2行目: ソース情報
-    const sourceRow = [
-        '└ソース',                                   // A列: インデント付きラベル
-        '',                                           // B列: 空
-        locationData.sourceInfo?.pageTitle || 'ソース',  // C列: ページタイトル
-        `=HYPERLINK("${locationData.sourceUrl}", "リンク")`,  // D列: クリック可能なリンク
-        locationData.sourceInfo?.pageDescription || '',        // E列: ページ概要
-        locationData.sourceInfo?.extractedFrom || '全体',      // F列: 抽出元セクション
-        locationData.sourceInfo?.dataQuality || '不明',        // G列: データ品質
-        (locationData.sourceInfo?.extractedFields || []).join(', ') || '',  // H列: 抽出フィールド
-        locationData.sourceInfo?.pageUrl || locationData.sourceUrl || '',    // I列: ページURL
-        '',                                                     // J列: 空
-        '',                                                     // K列: 空
-        ''                                                      // L列: 空
-    ];
-    
-    return [dataRow, sourceRow];
-}
-
-// 旧形式（互換性のため残す）
-function formatMasterDataForSheet(locationData, slideUrl, userName) {
-    const dataRows = formatMasterDataForSheetWithSource(locationData, slideUrl, userName);
-    return dataRows[0]; // 1行目のみ返す
-}
-
-async function checkDuplicateEntry(spreadsheetId, url, authToken) {
-    try {
-        const response = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/ロケハンDB!C:C`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            }
-        );
-        
-        if (!response.ok) return false;
-        
         const data = await response.json();
-        const values = data.values || [];
-        
-        return values.some(row => row[0] === url);
-    } catch (error) {
-        console.error('重複チェックエラー:', error);
-        return false;
-    }
-}
+        const sheets = data.sheets || [];
+        const hasSheet = sheets.some(s => s.properties.title === 'ロケハンDB');
 
-export async function createMasterSpreadsheet(authToken, title = 'ロケハンマスターDB') {
-    try {
-        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                properties: {
-                    title: title
-                },
-                sheets: [{
-                    properties: {
-                        title: 'ロケハンDB'
-                    },
-                    data: [{
-                        startRow: 0,
-                        startColumn: 0,
-                        rowData: [{
-                            values: [
-                                { userEnteredValue: { stringValue: '登録者' } },
-                                { userEnteredValue: { stringValue: '登録日時' } },
-                                { userEnteredValue: { stringValue: 'URL' } },
-                                { userEnteredValue: { stringValue: '場所名' } },
-                                { userEnteredValue: { stringValue: '住所' } },
-                                { userEnteredValue: { stringValue: '電車アクセス' } },
-                                { userEnteredValue: { stringValue: '車アクセス' } },
-                                { userEnteredValue: { stringValue: '駐車場' } },
-                                { userEnteredValue: { stringValue: '電話番号' } },
-                                { userEnteredValue: { stringValue: 'スライドURL' } }
-                            ]
-                        }]
-                    }]
-                }]
-            })
-        });
-        
-        if (!createResponse.ok) {
-            throw new Error('マスタースプレッドシート作成失敗');
+        if (!hasSheet) {
+            // シートを作成
+            await createSheet(spreadsheetId, authToken);
         }
-        
-        const spreadsheet = await createResponse.json();
-        console.log('新規マスタースプレッドシート作成:', spreadsheet.spreadsheetId);
-        
-        await formatSpreadsheet(spreadsheet.spreadsheetId, authToken, true);
-        
-        return spreadsheet.spreadsheetId;
-        
+
     } catch (error) {
-        console.error('マスタースプレッドシート作成エラー:', error);
-        throw error;
+        console.error('シート確認エラー:', error);
+        // エラーの場合はシート作成を試みる
+        await createSheet(spreadsheetId, authToken);
     }
 }
 
-export async function createSpreadsheetIfNotExists(authToken, title = 'ロケハンデータベース') {
-    try {
-        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                properties: {
-                    title: title
-                },
-                sheets: [{
-                    properties: {
-                        title: 'ロケハンDB'
-                    },
-                    data: [{
-                        startRow: 0,
-                        startColumn: 0,
-                        rowData: [{
-                            values: [
-                                { userEnteredValue: { stringValue: '登録日時' } },
-                                { userEnteredValue: { stringValue: 'URL' } },
-                                { userEnteredValue: { stringValue: '場所名' } },
-                                { userEnteredValue: { stringValue: '住所' } },
-                                { userEnteredValue: { stringValue: '電車アクセス' } },
-                                { userEnteredValue: { stringValue: '車アクセス' } },
-                                { userEnteredValue: { stringValue: '駐車場' } },
-                                { userEnteredValue: { stringValue: '電話番号' } },
-                                { userEnteredValue: { stringValue: 'スライドURL' } }
-                            ]
-                        }]
-                    }]
-                }]
-            })
-        });
-        
-        if (!createResponse.ok) {
-            throw new Error('スプレッドシート作成失敗');
-        }
-        
-        const spreadsheet = await createResponse.json();
-        console.log('新規スプレッドシート作成:', spreadsheet.spreadsheetId);
-        
-        await formatSpreadsheet(spreadsheet.spreadsheetId, authToken);
-        
-        return spreadsheet.spreadsheetId;
-        
-    } catch (error) {
-        console.error('スプレッドシート作成エラー:', error);
-        throw error;
-    }
-}
-
-async function formatSpreadsheet(spreadsheetId, authToken, isMaster = false) {
-    const columnCount = isMaster ? 9 : 8;
-    const requests = [
+/**
+ * 新しいシートを作成してヘッダーを設定
+ */
+async function createSheet(spreadsheetId, authToken) {
+    // シートを追加
+    const addSheetResponse = await fetch(
+        `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}:batchUpdate`,
         {
-            repeatCell: {
-                range: {
-                    sheetId: 0,
-                    startRowIndex: 0,
-                    endRowIndex: 1
-                },
-                cell: {
-                    userEnteredFormat: {
-                        backgroundColor: {
-                            red: 0.2,
-                            green: 0.4,
-                            blue: 0.8
-                        },
-                        textFormat: {
-                            foregroundColor: {
-                                red: 1,
-                                green: 1,
-                                blue: 1
-                            },
-                            fontSize: 11,
-                            bold: true
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                requests: [{
+                    addSheet: {
+                        properties: {
+                            title: 'ロケハンDB'
                         }
                     }
-                },
-                fields: 'userEnteredFormat(backgroundColor,textFormat)'
-            }
-        },
-        {
-            updateDimensionProperties: {
-                range: {
-                    sheetId: 0,
-                    dimension: 'COLUMNS',
-                    startIndex: 0,
-                    endIndex: columnCount
-                },
-                properties: {
-                    pixelSize: 150
-                },
-                fields: 'pixelSize'
-            }
-        },
-        {
-            setDataValidation: {
-                range: {
-                    sheetId: 0,
-                    startRowIndex: 1,
-                    startColumnIndex: 6,
-                    endColumnIndex: 7
-                },
-                rule: {
-                    condition: {
-                        type: 'ONE_OF_LIST',
-                        values: [
-                            { userEnteredValue: '有り - 無料' },
-                            { userEnteredValue: '有り - 有料' },
-                            { userEnteredValue: '無し' },
-                            { userEnteredValue: '記載無し' }
-                        ]
-                    },
-                    showCustomUi: true
-                }
-            }
+                }]
+            })
         }
-    ];
-    
+    );
+
+    if (!addSheetResponse.ok) {
+        const error = await addSheetResponse.json();
+        // シートが既に存在する場合は無視
+        if (!error.error?.message?.includes('already exists')) {
+            throw new Error(`シート作成失敗: ${error.error?.message}`);
+        }
+    }
+
+    // ヘッダーを設定
     await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}/values/ロケハンDB!A1:O1?valueInputOption=USER_ENTERED`,
+        {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                values: [SHEET_HEADERS]
+            })
+        }
+    );
+
+    // ヘッダー行のスタイルを設定
+    await formatHeaderRow(spreadsheetId, authToken);
+}
+
+/**
+ * ヘッダー行のスタイルを設定
+ */
+async function formatHeaderRow(spreadsheetId, authToken) {
+    // まずシートIDを取得
+    const response = await fetch(
+        `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+        {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        }
+    );
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const sheet = data.sheets?.find(s => s.properties.title === 'ロケハンDB');
+    if (!sheet) return;
+
+    const sheetId = sheet.properties.sheetId;
+
+    // スタイルを適用
+    await fetch(
+        `${SHEETS_API_BASE}/spreadsheets/${spreadsheetId}:batchUpdate`,
         {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ requests })
+            body: JSON.stringify({
+                requests: [
+                    // ヘッダー行の背景色
+                    {
+                        repeatCell: {
+                            range: {
+                                sheetId: sheetId,
+                                startRowIndex: 0,
+                                endRowIndex: 1
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 0.2, green: 0.4, blue: 0.8 },
+                                    textFormat: {
+                                        foregroundColor: { red: 1, green: 1, blue: 1 },
+                                        fontSize: 11,
+                                        bold: true
+                                    }
+                                }
+                            },
+                            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+                        }
+                    },
+                    // 列幅を設定
+                    {
+                        updateDimensionProperties: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'COLUMNS',
+                                startIndex: 0,
+                                endIndex: 15
+                            },
+                            properties: { pixelSize: 150 },
+                            fields: 'pixelSize'
+                        }
+                    },
+                    // ヘッダー行を固定
+                    {
+                        updateSheetProperties: {
+                            properties: {
+                                sheetId: sheetId,
+                                gridProperties: { frozenRowCount: 1 }
+                            },
+                            fields: 'gridProperties.frozenRowCount'
+                        }
+                    }
+                ]
+            })
         }
     );
 }
 
-export async function getSpreadsheetUrl(spreadsheetId) {
-    return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+/**
+ * 新しいスプレッドシートを作成
+ * @param {string} title - スプレッドシートのタイトル
+ * @param {string} authToken - 認証トークン
+ * @returns {Promise<string>} 作成したスプレッドシートのID
+ */
+export async function createSpreadsheet(title, authToken) {
+    const response = await fetch(`${SHEETS_API_BASE}/spreadsheets`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            properties: { title },
+            sheets: [{
+                properties: { title: 'ロケハンDB' },
+                data: [{
+                    startRow: 0,
+                    startColumn: 0,
+                    rowData: [{
+                        values: SHEET_HEADERS.map(header => ({
+                            userEnteredValue: { stringValue: header }
+                        }))
+                    }]
+                }]
+            }]
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error('スプレッドシート作成失敗');
+    }
+
+    const spreadsheet = await response.json();
+    await formatHeaderRow(spreadsheet.spreadsheetId, authToken);
+
+    return spreadsheet.spreadsheetId;
 }

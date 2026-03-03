@@ -1,431 +1,383 @@
 /**
- * Location Scout Extension - バックグラウンドスクリプト
- * 役割: 拡張機能のメイン処理統括、各モジュールの連携制御
- * 
+ * Location Scout v2 - バックグラウンドスクリプト
+ * メイン処理統括、各モジュールの連携制御
+ *
  * 処理フロー:
- * 1. ページコンテンツ抽出 → 2. GPT-4解析 → 3. Google認証 → 4. スライド生成 → 5. スプレッドシート保存
+ * 1. ページコンテンツ抽出
+ * 2. 関連ページクロール
+ * 3. 画像ダウンロード・分類
+ * 4. GPT解析
+ * 5. フォルダ作成・ファイル保存
+ * 6. スライド生成
+ * 7. スプレッドシート保存
  */
 
-// 静的インポート（Service Workerでは動的importは使用不可）
-// インポートは最初に記述する必要がある
-import { analyzeWithGPT } from './gptAnalyzer.js';
-import { createCustomFormatSlide, createSlideFromTemplate } from './slideGenerator_custom.js';
-import { saveToSpreadsheet, saveToMasterSpreadsheet, createSpreadsheetIfNotExists } from './sheetsManager.js';
-import { getAuthToken } from './auth.js';
-import { SecureStorage } from './encryption.js';
+// モジュールインポート
+import { getAuthToken, isAuthenticated, refreshToken } from './auth.js';
+import { createLocationFolder, saveImages, listFolders } from './driveManager.js';
+import { crawlRelatedPages, mergeContents } from './crawler.js';
+import { analyzeLocationData, classifyImages } from './gptAnalyzer.js';
+import { createSlide } from './slideGenerator.js';
+import { saveToSpreadsheet } from './sheetsManager.js';
 
-// Service Worker起動確認
-console.log('🔥 Service Worker Starting...');
-console.log('Location Scout Extension - Background Service Worker Activated');
+console.log('Location Scout v2 - Service Worker Starting...');
 
-// インポート完了確認
-console.log('✅ All modules imported successfully');
-
-// Service Worker の起動を記録
-chrome.storage.local.set({ 
-    serviceWorkerStatus: 'ready',
-    lastStartTime: new Date().toISOString(),
-    moduleLoadTime: new Date().toISOString()
-}).catch(error => {
-    console.error('Storage error:', error);
-});
-
-/**
- * ポップアップUIからのメッセージ受信・処理振り分け
- * アクション別に対応する処理関数を呼び出し
- */
+// メッセージリスナー
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('📨 Message received:', request.action);
-    
-    if (request.action === 'generateSlide') {
-        handleSlideGeneration(request, sendResponse);    // メイン処理: スライド生成
-        return true;  // 非同期レスポンス有効化
-    } else if (request.action === 'selectFolder') {
-        handleFolderSelection(sendResponse);            // フォルダ選択
-        return true;
-    } else if (request.action === 'selectMasterSlide') {
-        handleMasterSlideSelection(sendResponse);       // マスタースライド選択
-        return true;
-    } else if (request.action === 'encryptApiKey') {
-        handleEncryptApiKey(request, sendResponse);      // APIキー暗号化
-        return true;
-    } else if (request.action === 'decryptApiKey') {
-        handleDecryptApiKey(request, sendResponse);      // APIキー復号化
-        return true;
+    console.log('Message received:', request.action);
+
+    switch (request.action) {
+        case 'startCollection':
+            handleStartCollection(request, sendResponse);
+            return true;
+        case 'authenticate':
+            handleAuthenticate(sendResponse);
+            return true;
+        case 'selectFolder':
+            handleSelectFolder(sendResponse);
+            return true;
     }
     return false;
 });
 
 /**
- * スライド生成メイン処理関数
- * 全体の処理フローを統括し、エラーハンドリングを実装
- * 
- * @param {Object} request - ポップアップUIからのリクエスト（URL、設定等）
- * @param {Function} sendResponse - 結果返却用コールバック関数
+ * 情報収集メイン処理
  */
-async function handleSlideGeneration(request, sendResponse) {
+async function handleStartCollection(request, sendResponse) {
+    const errors = [];
+    const result = {
+        success: false,
+        folderUrl: null,
+        slideUrl: null,
+        spreadsheetUrl: null,
+        errors: [],
+        summary: ''
+    };
+
+    console.log('=== handleStartCollection START ===');
+    console.log('Request:', JSON.stringify(request, null, 2));
+
     try {
-        console.log('🚀 スライド生成開始:', request.url);
-        
-        // 進捗の初期化
-        await chrome.storage.local.set({ 
-            currentProcessingStage: 'starting',
-            lastUpdate: Date.now() 
-        });
-        
-        // Step 1: ページコンテンツ取得（content.js経由）
-        console.log('📄 Step 1: ページコンテンツを取得中...');
-        // ポップアップに進捗通知を送信
-        await sendProgressUpdate('extracting');
-        
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
-        // タブが有効か確認
-        if (!tab || !tab.id) {
-            throw new Error('有効なタブが見つかりません');
+        const { tabId, settings } = request;
+
+        if (!tabId) {
+            throw new Error('tabIdが指定されていません');
         }
-        
-        console.log('対象タブ:', tab.url);
-        
-        // システムページ（chrome://、edge://等）をチェック
-        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || 
-            tab.url.startsWith('about:') || tab.url.startsWith('chrome-extension://')) {
-            throw new Error('このページからは情報を取得できません。通常のWebページで実行してください。');
+
+        if (!settings) {
+            throw new Error('settingsが指定されていません');
         }
-        
-        // content scriptが読み込まれているか確認し、必要なら注入
-        let contentResponse;
+
+        console.log('TabId:', tabId);
+        console.log('Settings:', JSON.stringify({
+            hasApiKey: !!settings.apiKey,
+            parentFolderId: settings.parentFolderId,
+            enableCrawl: settings.enableCrawl,
+            saveImages: settings.saveImages
+        }, null, 2));
+
+        // Step 1: ページコンテンツ抽出
+        await updateProgress('extracting', 10, 'ページ情報を抽出中...');
+
+        let mainContent;
         try {
-            // まずcontent scriptが存在するか確認
-            contentResponse = await chrome.tabs.sendMessage(tab.id, { 
-                action: 'extractContent' 
+            mainContent = await chrome.tabs.sendMessage(tabId, { action: 'extractContent' });
+            if (!mainContent || mainContent.error) {
+                throw new Error(mainContent?.error || 'コンテンツ抽出失敗');
+            }
+        } catch (e) {
+            // content scriptを注入して再試行
+            await chrome.scripting.executeScript({
+                target: { tabId },
+                files: ['content/content.js']
             });
-        } catch (error) {
-            console.log('Content script not loaded, injecting...');
-            
-            // content scriptが読み込まれていない場合は注入
+            await new Promise(resolve => setTimeout(resolve, 200));
+            mainContent = await chrome.tabs.sendMessage(tabId, { action: 'extractContent' });
+        }
+
+        console.log('Main content extracted:', mainContent.title);
+        console.log('抽出された画像数:', mainContent.images?.length || 0);
+        if (mainContent.images?.length > 0) {
+            console.log('画像サンプル:', mainContent.images.slice(0, 3).map(img => ({
+                src: img.src?.substring(0, 60),
+                source: img.source
+            })));
+        }
+
+        // Step 2: 関連ページクロール
+        let mergedContent = { mainPage: mainContent, allImages: mainContent.images || [] };
+        console.log('初期allImages数:', mergedContent.allImages.length);
+
+        if (settings.enableCrawl && mainContent.links?.length > 0) {
+            await updateProgress('crawling', 20, '関連ページをクロール中...');
+
             try {
-                await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    files: ['content/content.js']
-                });
-                console.log('Content script injected successfully');
-                
-                // 少し待ってから再試行
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // 再度メッセージを送信
-                contentResponse = await chrome.tabs.sendMessage(tab.id, { 
-                    action: 'extractContent' 
-                });
-            } catch (injectError) {
-                console.error('Content script injection failed:', injectError);
-                // より詳細なエラーメッセージ
-                if (injectError.message.includes('Cannot access')) {
-                    throw new Error('このページへのアクセスが制限されています。通常のWebページで実行してください。');
-                } else {
-                    throw new Error('ページ情報の取得に失敗しました。ページを再読み込みしてから、もう一度お試しください。');
-                }
+                const crawledPages = await crawlRelatedPages(
+                    tabId,
+                    mainContent.links,
+                    (detail) => updateProgress('crawling', 25, detail)
+                );
+                mergedContent = mergeContents(mainContent, crawledPages);
+                console.log(`Crawled ${crawledPages.length} additional pages`);
+                console.log('マージ後allImages数:', mergedContent.allImages?.length || 0);
+            } catch (e) {
+                console.error('Crawl error:', e);
+                errors.push(`関連ページクロール失敗: ${e.message}`);
             }
         }
-        
-        console.log('✅ ページコンテンツ抽出完了');
-        console.log('📋 取得したコンテンツ:', contentResponse);
-        
-        // contentResponseの検証
-        if (!contentResponse) {
-            throw new Error('ページからコンテンツを取得できませんでした。ページを再読み込みしてください。');
+
+        // Step 3: 画像ダウンロード・分類
+        await updateProgress('downloading_images', 40, '画像をダウンロード中...');
+
+        let classifiedImages = [];
+        const maxImages = settings.maxImages || 40;
+
+        console.log('画像処理チェック:', {
+            saveImages: settings.saveImages,
+            allImagesCount: mergedContent.allImages?.length || 0,
+            maxImages: maxImages
+        });
+
+        if (settings.saveImages && mergedContent.allImages?.length > 0) {
+            try {
+                const imagesToProcess = mergedContent.allImages.slice(0, maxImages);
+                console.log(`処理対象画像: ${imagesToProcess.length}枚`);
+
+                // Content Scriptから画像をBase64でダウンロード
+                const imageUrls = imagesToProcess.map(img => img.src);
+                console.log('画像URL:', imageUrls);
+
+                const downloadResult = await chrome.tabs.sendMessage(tabId, {
+                    action: 'downloadImages',
+                    urls: imageUrls
+                });
+
+                console.log('画像ダウンロード結果:', downloadResult);
+
+                if (downloadResult?.results) {
+                    // ダウンロード成功した画像を分類
+                    const downloadedImages = [];
+                    for (let i = 0; i < downloadResult.results.length; i++) {
+                        const result = downloadResult.results[i];
+                        if (result.success) {
+                            downloadedImages.push({
+                                src: result.url,
+                                base64: result.base64,
+                                ...imagesToProcess[i]
+                            });
+                        } else {
+                            console.warn(`画像 ${i + 1} ダウンロード失敗:`, result.error);
+                        }
+                    }
+
+                    console.log(`ダウンロード成功: ${downloadedImages.length}枚`);
+
+                    // 画像分類・フィルタリング（GPT-4o-mini Vision）
+                    // classifyImagesがAIでValid/Invalid判定し、Valid画像のみを返す
+                    if (downloadedImages.length > 0) {
+                        await updateProgress('downloading_images', 50, 'AIで画像を選別中...');
+                        classifiedImages = await classifyImages(downloadedImages, settings.apiKey);
+                        console.log(`AI選別完了: ${classifiedImages.length}枚が保存対象`);
+                    }
+                }
+            } catch (e) {
+                console.error('Image processing error:', e);
+                errors.push(`画像処理失敗: ${e.message}`);
+            }
         }
-        
-        // content scriptからのエラーをチェック
-        if (contentResponse.error) {
-            throw new Error('コンテンツ抽出エラー: ' + contentResponse.error);
+
+        // Step 4: GPT解析
+        await updateProgress('analyzing', 60, 'AIで情報を解析中...');
+
+        let locationData;
+        try {
+            locationData = await analyzeLocationData(mergedContent, settings.apiKey);
+            console.log('Location data analyzed:', locationData.locationName);
+        } catch (e) {
+            console.error('GPT analysis error:', e);
+            throw new Error(`GPT解析失敗: ${e.message}`);
         }
-        
-        // Step 2: GPT-4による情報解析（場所情報の構造化）
-        console.log('🤖 Step 2: GPT APIで情報を解析中...');
-        await sendProgressUpdate('analyzing');
-        
-        const locationData = await analyzeWithGPT(
-            contentResponse,                    // 抽出したページコンテンツ
-            request.settings.apiKey             // ユーザー設定のAPIキー
-        );
-        console.log('✅ GPT解析完了:', locationData);
-        
-        // GPT解析結果の検証
-        if (!locationData) {
-            throw new Error('GPT分析に失敗しました。APIキーを確認してください。');
-        }
-        
-        console.log('🎯 GPT解析が正常に完了しました。次にGoogle認証を開始します...');
-        
-        // Step 3: Google認証（GPT解析完了後に実行）
-        console.log('🔐 Step 3: Google認証を取得中...');
-        await sendProgressUpdate('authenticating');
-        
+
+        // Step 5: Google認証
+        await updateProgress('creating_folder', 70, 'Google認証中...');
+
         let authToken;
         try {
             authToken = await getAuthToken();
-            console.log('✅ Google認証完了');
-        } catch (authError) {
-            console.error('❌ Google認証エラー:', authError);
-            console.log('💡 Google OAuth設定が必要です。manifest.jsonのclient_idを設定してください。');
-            
-            // 認証なしで続行を試行
-            console.log('⚠️ 認証なしで処理を続行します（テスト用）');
-            authToken = null;
+        } catch (e) {
+            throw new Error(`Google認証失敗: ${e.message}`);
         }
-        
-        // Step 4: スライド生成
-        console.log('📊 Step 4: スライドを生成中...');
-        await sendProgressUpdate('creating_slide');
-        
-        let slideUrl;
-        
-        if (!authToken) {
-            console.log('⚠️ 認証トークンなし - スライド生成をスキップ');
-            slideUrl = '#認証が必要です';
-            
-            // GPT結果をコンソールに出力（テスト用）
-            console.log('🤖 GPT解析結果:', JSON.stringify(locationData, null, 2));
-            
-        } else {
+
+        // Step 6: フォルダ作成
+        await updateProgress('creating_folder', 72, 'フォルダを作成中...');
+
+        let folderInfo;
+        try {
+            folderInfo = await createLocationFolder(
+                locationData.locationName,
+                settings.parentFolderId,
+                authToken
+            );
+            result.folderUrl = folderInfo.folderUrl;
+            console.log('Folder created:', folderInfo.folderId);
+        } catch (e) {
+            console.error('Folder creation error:', e);
+            errors.push(`フォルダ作成失敗: ${e.message}`);
+        }
+
+        // Step 7: 画像保存
+        let savedImages = [];
+        if (settings.saveImages && classifiedImages.length > 0 && folderInfo?.imagesFolderId) {
+            await updateProgress('saving_images', 75, '画像を保存中...');
+
             try {
-                // スライド作成（マスタースライド蓄積モード対応）
-                slideUrl = await createCustomFormatSlide(locationData, authToken, {
-                    slideMode: request.settings.slideMode || 'new',
-                    masterSlideId: request.settings.masterSlideId,
-                    slideFolderId: request.settings.slideFolderId
+                const imageResult = await saveImages(
+                    classifiedImages,
+                    locationData.locationName,
+                    folderInfo.imagesFolderId,
+                    authToken,
+                    (detail) => updateProgress('saving_images', 75, detail)
+                );
+
+                savedImages = imageResult.saved || [];
+
+                if (imageResult.errors.length > 0) {
+                    for (const err of imageResult.errors) {
+                        errors.push(`画像保存失敗 (${err.index + 1}): ${err.error}`);
+                    }
+                }
+                console.log(`Saved ${savedImages.length} images`);
+            } catch (e) {
+                console.error('Image save error:', e);
+                errors.push(`画像保存失敗: ${e.message}`);
+            }
+        }
+
+        // Step 8: スライド生成
+        await updateProgress('creating_slide', 85, 'スライドを作成中...');
+
+        try {
+            const slideUrl = await createSlide(locationData, savedImages, authToken, {
+                slideMode: settings.slideMode,
+                masterSlideId: settings.masterSlideId
+            });
+            result.slideUrl = slideUrl;
+            console.log('Slide created:', slideUrl);
+        } catch (e) {
+            console.error('Slide creation error (1st attempt):', e);
+
+            // 認証エラーの可能性があるので、トークンをリフレッシュして再試行
+            console.log('トークンをリフレッシュして再試行...');
+            try {
+                const newToken = await refreshToken();
+                const slideUrl = await createSlide(locationData, savedImages, newToken, {
+                    slideMode: settings.slideMode,
+                    masterSlideId: settings.masterSlideId
                 });
-                console.log('✅ スライド生成完了:', slideUrl);
-            } catch (slideError) {
-                console.error('❌ スライド生成エラー:', slideError);
-                slideUrl = '#スライド生成エラー';
+                result.slideUrl = slideUrl;
+                console.log('Slide created (retry success):', slideUrl);
+            } catch (retryError) {
+                console.error('Slide creation error (retry failed):', retryError);
+                errors.push(`スライド生成失敗: ${retryError.message}`);
             }
         }
-        
-        // Step 5: スプレッドシート保存
-        await sendProgressUpdate('saving_spreadsheet');
-        
-        // チーム共有機能: マスタースプレッドシートに保存
-        let masterSaved = false;
-        if (request.settings.teamSharing && request.settings.masterSpreadsheetId) {
+
+        // Step 10: スプレッドシート保存
+        if (settings.saveToSheets && settings.spreadsheetId) {
+            await updateProgress('saving_spreadsheet', 95, 'スプレッドシートに保存中...');
+
             try {
-                const masterResult = await saveToMasterSpreadsheet(
+                const sheetResult = await saveToSpreadsheet(
                     locationData,
-                    slideUrl,
-                    authToken,
-                    request.settings.masterSpreadsheetId,
-                    request.settings.userName
+                    {
+                        slideUrl: result.slideUrl,
+                        folderUrl: result.folderUrl
+                    },
+                    settings.spreadsheetId,
+                    authToken
                 );
-                console.log('マスタースプレッドシートへの保存完了:', masterResult);
-                masterSaved = !masterResult.duplicate;
-            } catch (masterError) {
-                console.error('マスタースプレッドシート保存エラー:', masterError);
+                result.spreadsheetUrl = sheetResult.spreadsheetUrl;
+                console.log('Spreadsheet saved');
+            } catch (e) {
+                console.error('Spreadsheet save error:', e);
+                errors.push(`スプレッドシート保存失敗: ${e.message}`);
             }
         }
-        
-        // 個人用スプレッドシートに保存（オプション）
-        if (request.settings.saveToSheets && request.settings.spreadsheetId) {
-            try {
-                await saveToSpreadsheet(
-                    locationData,
-                    slideUrl,
-                    authToken,
-                    request.settings.spreadsheetId
-                );
-                console.log('個人用スプレッドシートへの保存完了');
-            } catch (sheetError) {
-                console.error('個人用スプレッドシート保存エラー:', sheetError);
-            }
-        }
-        
-        sendResponse({ 
-            success: true, 
-            slideUrl: slideUrl,
-            spreadsheetSaved: request.settings.saveToSheets,
-            masterSaved: masterSaved,
-            teamSharing: request.settings.teamSharing,
-            needsSetup: !authToken,
-            locationData: !authToken ? locationData : undefined
-        });
-        
+
+        // 完了
+        await updateProgress('completed', 100, '完了しました!');
+
+        result.success = true;
+        result.errors = errors;
+        result.summary = `${locationData.locationName}の情報を収集しました`;
+
+        sendResponse(result);
+
     } catch (error) {
-        console.error('❌ 全体エラー:', error);
-        
-        // エラー時は進捗をクリア
-        await chrome.storage.local.set({ 
-            currentProcessingStage: 'error',
-            lastUpdate: Date.now() 
-        });
-        
-        let errorMessage = error.message;
-        
-        if (error.message.includes('OAuth')) {
-            errorMessage = 'Google OAuth設定が必要です。manifest.jsonのclient_idを設定してください。';
-        } else if (error.message.includes('API key')) {
-            errorMessage = 'OpenAI APIキーが無効です。設定を確認してください。';
-        }
-        
-        sendResponse({ 
-            success: false, 
-            error: errorMessage,
-            needsSetup: true
-        });
+        console.error('=== Collection FATAL ERROR ===');
+        console.error('Error:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('Collected errors so far:', errors);
+
+        await updateProgress('error', 0, error.message);
+
+        result.success = false;
+        result.error = error.message;  // メインエラーメッセージを設定
+        result.errors = [...errors, error.message];
+
+        console.log('Sending error response:', result);
+        sendResponse(result);
     }
+
+    console.log('=== handleStartCollection END ===');
 }
 
-async function handleEncryptApiKey(request, sendResponse) {
+/**
+ * 認証処理
+ */
+async function handleAuthenticate(sendResponse) {
     try {
-        const encryptedKey = await SecureStorage.encrypt(request.apiKey);
-        sendResponse({ success: true, encryptedKey: encryptedKey });
+        const token = await getAuthToken(true);
+        sendResponse({ success: !!token });
     } catch (error) {
-        console.error('Encryption error:', error);
         sendResponse({ success: false, error: error.message });
     }
 }
 
-async function handleDecryptApiKey(request, sendResponse) {
+/**
+ * フォルダ選択
+ */
+async function handleSelectFolder(sendResponse) {
     try {
-        const decryptedKey = await SecureStorage.decrypt(request.encryptedKey);
-        sendResponse({ success: true, decryptedKey: decryptedKey });
+        const token = await getAuthToken(true);
+        const folders = await listFolders(token);
+        sendResponse({ success: true, folders });
     } catch (error) {
-        console.error('Decryption error:', error);
         sendResponse({ success: false, error: error.message });
     }
 }
 
-// 拡張機能インストール/更新時のイベント
+/**
+ * 進捗更新
+ */
+async function updateProgress(stage, percent, detail = '') {
+    await chrome.storage.local.set({
+        currentProcessingStage: stage,
+        progressPercent: percent,
+        progressDetail: detail,
+        lastUpdate: Date.now()
+    });
+    console.log(`Progress: ${stage} (${percent}%) - ${detail}`);
+}
+
+// インストール/更新時
 chrome.runtime.onInstalled.addListener((details) => {
-    console.log('🎉 Location Scout Extension installed/updated');
-    console.log('Installation reason:', details.reason);
-    console.log('Version:', chrome.runtime.getManifest().version);
-    
-    // Service Worker が正常に動作していることを示す
-    chrome.storage.local.set({ 
-        serviceWorkerStatus: 'active',
+    console.log('Location Scout v2 installed/updated:', details.reason);
+    chrome.storage.local.set({
+        serviceWorkerStatus: 'ready',
         installedAt: new Date().toISOString()
     });
 });
 
-// ポップアップに進捗更新を通知する関数
-async function sendProgressUpdate(stage) {
-    try {
-        // ポップアップへの直接通知は制限されているため、storageを使用
-        await chrome.storage.local.set({ 
-            currentProcessingStage: stage,
-            lastUpdate: Date.now() 
-        });
-        console.log(`進捗更新: ${stage}`);
-    } catch (error) {
-        console.log('進捗更新通知エラー:', error);
-    }
-}
-
-/**
- * フォルダ選択処理
- * Google Drive APIを使用してフォルダ一覧を取得し、ユーザーが選択できるようにする
- */
-async function handleFolderSelection(sendResponse) {
-    try {
-        console.log('📁 Starting folder selection...');
-        
-        // OAuth認証を取得
-        const authToken = await getAuthToken();
-        if (!authToken) {
-            throw new Error('Google Drive認証が必要です');
-        }
-        
-        // Drive APIでフォルダ一覧を取得
-        const response = await fetch(
-            'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.folder%27&fields=files(id%2Cname)&orderBy=name',
-            {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            }
-        );
-        
-        if (!response.ok) {
-            throw new Error(`Drive API error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        const folders = data.files || [];
-        
-        if (folders.length === 0) {
-            throw new Error('フォルダが見つかりませんでした');
-        }
-        
-        // 簡易選択：最初のフォルダを返す（実装では選択UIが必要）
-        const selectedFolder = folders[0];
-        
-        sendResponse({
-            success: true,
-            folderId: selectedFolder.id,
-            folderName: selectedFolder.name,
-            availableFolders: folders
-        });
-        
-    } catch (error) {
-        console.error('Folder selection error:', error);
-        sendResponse({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-}
-
-/**
- * マスタースライド選択処理
- * Google Slides APIを使用してスライド一覧を取得し、ユーザーが選択できるようにする
- */
-async function handleMasterSlideSelection(sendResponse) {
-    try {
-        console.log('📊 Starting master slide selection...');
-        
-        // OAuth認証を取得
-        const authToken = await getAuthToken();
-        if (!authToken) {
-            throw new Error('Google Slides認証が必要です');
-        }
-        
-        // Drive APIでGoogle Slidesファイル一覧を取得
-        const response = await fetch(
-            'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.presentation%27&fields=files(id%2Cname)&orderBy=modifiedTime%20desc',
-            {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            }
-        );
-        
-        if (!response.ok) {
-            throw new Error(`Drive API error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        const slides = data.files || [];
-        
-        if (slides.length === 0) {
-            throw new Error('Google Slidesファイルが見つかりませんでした');
-        }
-        
-        // 簡易選択：最初のスライドを返す（実装では選択UIが必要）
-        const selectedSlide = slides[0];
-        
-        sendResponse({
-            success: true,
-            slideId: selectedSlide.id,
-            slideName: selectedSlide.name,
-            availableSlides: slides
-        });
-        
-    } catch (error) {
-        console.error('Master slide selection error:', error);
-        sendResponse({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-}
-
-// Service Worker の起動を確認
-console.log('🚀 Service Worker fully loaded and ready');
-console.log('Extension ID:', chrome.runtime.id);
+console.log('Location Scout v2 - Service Worker Ready');

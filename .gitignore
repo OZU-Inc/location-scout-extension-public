@@ -1,73 +1,29 @@
-# Dependencies
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
 node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Build outputs
+# Build artifacts
 *.zip
 dist/
-build/
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE files
-.vscode/
+# IDE
 .idea/
+.vscode/
 *.swp
 *.swo
-*~
 
-# Logs
-logs
-*.log
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# API Keys (security)
+# Secrets (never commit these)
+*.pem
 *.key
-api-keys.json
-secrets.json
+credentials.json
+token.json
 
-# Temporary files
-tmp/
-temp/
-
-# X_files
-X_HOW_TO_SHARE_TEMPLATE.md
-X_location_automation_proposal.md
-X_TEMPLATE_SETUP_GUIDE.md
-X_UPDATED_IMPLEMENTATION.md
+# Chrome extension development
+*.crx
+*.pem
+key.pem

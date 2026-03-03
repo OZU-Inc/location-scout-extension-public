@@ -1,53 +1,80 @@
 /**
- * Google OAuth認証トークン取得関数
- * 目的: Google APIs（Slides、Sheets、Drive）にアクセスするための認証トークンを取得
- * manifest.jsonのclient_idとscopesに基づいて認証フローを実行
+ * Location Scout v2 - Google認証モジュール
  */
-export async function getAuthToken() {
+
+let cachedToken = null;
+let tokenExpiry = null;
+
+/**
+ * Google認証トークンを取得
+ * @param {boolean} interactive - インタラクティブ認証を許可するか
+ * @returns {Promise<string>} 認証トークン
+ */
+export async function getAuthToken(interactive = true) {
+    // キャッシュされたトークンが有効かチェック
+    if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
+        console.log('Using cached auth token');
+        return cachedToken;
+    }
+
     return new Promise((resolve, reject) => {
-        // Chrome Identity API でOAuth認証実行（ユーザーにGoogleログイン画面表示）
-        chrome.identity.getAuthToken({ interactive: true }, (token) => {
+        chrome.identity.getAuthToken({ interactive }, (token) => {
             if (chrome.runtime.lastError) {
-                // 認証失敗時（client_id未設定、ユーザー拒否等）
+                console.error('Auth error:', chrome.runtime.lastError);
                 reject(new Error(chrome.runtime.lastError.message));
-            } else {
-                // 認証成功 - アクセストークンを返却
-                resolve(token);
+                return;
             }
+
+            if (!token) {
+                reject(new Error('認証トークンを取得できませんでした'));
+                return;
+            }
+
+            // トークンをキャッシュ（55分間有効）
+            cachedToken = token;
+            tokenExpiry = Date.now() + 55 * 60 * 1000;
+
+            console.log('Got new auth token');
+            resolve(token);
         });
     });
 }
 
 /**
- * 保存されている認証トークンをキャッシュから削除
- * 目的: ログアウト処理や認証エラー時のトークン無効化
+ * トークンを無効化してキャッシュをクリア
+ * @returns {Promise<void>}
  */
-export async function removeCachedAuthToken(token) {
-    return new Promise((resolve) => {
-        chrome.identity.removeCachedAuthToken({ token }, () => {
-            resolve();  // 削除完了
+export async function revokeToken() {
+    if (cachedToken) {
+        return new Promise((resolve) => {
+            chrome.identity.removeCachedAuthToken({ token: cachedToken }, () => {
+                cachedToken = null;
+                tokenExpiry = null;
+                console.log('Token revoked');
+                resolve();
+            });
         });
-    });
+    }
 }
 
 /**
- * 汎用WebAuth認証フロー実行関数
- * 目的: 他のOAuth プロバイダー用の認証フロー（現在は未使用）
+ * 認証状態をチェック
+ * @returns {Promise<boolean>}
  */
-export async function launchWebAuthFlow(url) {
-    return new Promise((resolve, reject) => {
-        chrome.identity.launchWebAuthFlow(
-            {
-                url: url,              // 認証プロバイダーのURL
-                interactive: true      // ユーザー操作必須
-            },
-            (redirectUrl) => {
-                if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                    resolve(redirectUrl);  // リダイレクトURLを返却（認証コード等含む）
-                }
-            }
-        );
-    });
+export async function isAuthenticated() {
+    try {
+        const token = await getAuthToken(false);
+        return !!token;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * トークンをリフレッシュ
+ * @returns {Promise<string>}
+ */
+export async function refreshToken() {
+    await revokeToken();
+    return getAuthToken(true);
 }
